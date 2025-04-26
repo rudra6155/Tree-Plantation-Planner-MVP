@@ -1,0 +1,66 @@
+import streamlit as st
+
+def display_tree_svg():
+    """
+    Display an SVG tree icon in the app.
+    """
+    tree_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none">
+      <path d="M60 10C46.2 10 35 21.2 35 35C35 41.6 37.6 47.6 42 51.8C34.4 56.6 30 65.2 30 75C30 89.2 41.6 100 55 100H57.5V110H62.5V100H65C78.4 100 90 89.2 90 75C90 65.2 85.6 56.6 78 51.8C82.4 47.6 85 41.6 85 35C85 21.2 73.8 10 60 10Z" fill="#2E7D32"/>
+      <rect x="57.5" y="65" width="5" height="45" fill="#795548"/>
+      <path d="M42 51.8C37.6 47.6 35 41.6 35 35C35 21.2 46.2 10 60 10C73.8 10 85 21.2 85 35C85 41.6 82.4 47.6 78 51.8M42 51.8C34.4 56.6 30 65.2 30 75C30 89.2 41.6 100 55 100H57.5M42 51.8C47.2 48.6 53.4 47 60 47C66.6 47 72.8 48.6 78 51.8M78 51.8C85.6 56.6 90 65.2 90 75C90 89.2 78.4 100 65 100H62.5M57.5 100V110M62.5 100V110" stroke="#004D40" stroke-width="2"/>
+    </svg>
+    """
+    st.sidebar.markdown(tree_svg, unsafe_allow_html=True)
+
+def format_environmental_benefit(benefit_type, value, unit):
+    """
+    Format environmental benefit for display.
+    
+    Args:
+        benefit_type (str): Type of environmental benefit
+        value (float): Numeric value of the benefit
+        unit (str): Unit of measurement
+        
+    Returns:
+        str: Formatted environmental benefit
+    """
+    return f"{benefit_type}: {value:.2f} {unit}"
+
+def get_climate_icon(climate_zone):
+    """
+    Returns an appropriate icon for a climate zone.
+    
+    Args:
+        climate_zone (str): Climate zone name
+        
+    Returns:
+        str: Icon representing the climate zone
+    """
+    icons = {
+        "Tropical": "🌴",
+        "Subtropical": "☀️",
+        "Temperate": "🍂",
+        "Arid": "🏜️"
+    }
+    return icons.get(climate_zone, "🌍")
+
+def get_soil_icon(soil_type):
+    """
+    Returns an appropriate icon for a soil type.
+    
+    Args:
+        soil_type (str): Soil type name
+        
+    Returns:
+        str: Icon representing the soil type
+    """
+    icons = {
+        "Sandy": "🏝️",
+        "Loamy": "🌱",
+        "Clay": "🧱",
+        "Silty": "💨",
+        "Rocky": "🪨",
+        "Riverbed": "🏞️"
+    }
+    return icons.get(soil_type, "🌱")
