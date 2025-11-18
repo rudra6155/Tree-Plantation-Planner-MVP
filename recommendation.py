@@ -65,3 +65,60 @@ def get_recommendations(climate_data, soil_data):
     
     # Return top recommendations
     return sorted_trees
+
+
+def get_balcony_recommendations(space_size, sunlight_hours, purposes, climate_data=None):
+    """
+    Returns plant recommendations for balcony/urban spaces
+    """
+    from tree_data import get_balcony_plants_data
+
+    all_plants = get_balcony_plants_data()
+    recommendations = []
+
+    # Filter by space
+    space_map = {
+        "Very Small (≤ 0.5 m²)": "Very Small",
+        "Small (0.5-2 m²)": "Small",
+        "Medium (2-5 m²)": ["Small", "Medium"],
+        "Large (>5 m²)": ["Small", "Medium", "Large"]
+    }
+
+    allowed_spaces = space_map.get(space_size, ["Small"])
+    if isinstance(allowed_spaces, str):
+        allowed_spaces = [allowed_spaces]
+
+    for plant in all_plants:
+        if plant['space_required'] not in allowed_spaces:
+            continue
+
+        # Filter by sunlight
+        if sunlight_hours < 4 and "Low" not in plant['sunlight_need']:
+            continue
+        if sunlight_hours >= 6 and "High" not in plant['sunlight_need']:
+            if sunlight_hours < 8:  # Medium sunlight OK for high-need plants
+                pass
+            else:
+                continue
+
+        # Filter by purpose
+        if purposes:
+            if any(purpose in plant['purposes'] for purpose in purposes):
+                recommendations.append(plant)
+        else:
+            recommendations.append(plant)
+
+    # Add suitability score
+    for plant in recommendations:
+        score = 0
+        if plant['care_difficulty'] in ['Very Easy', 'Easy']:
+            score += 2
+        if purposes:
+            matching_purposes = sum(1 for p in purposes if p in plant['purposes'])
+            score += matching_purposes * 3
+        plant['suitability_score'] = score
+
+    # Sort by suitability
+    recommendations.sort(key=lambda x: x['suitability_score'], reverse=True)
+
+    return recommendations[:9]  # Return top 9
