@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from community import initialize_community, display_community_feed
 import geopy
 from geopy.geocoders import Nominatim
 import matplotlib.pyplot as plt
@@ -14,7 +15,14 @@ from soil_data import get_soil_types, get_soil_data
 from impact_calculator import calculate_impact
 from utils import display_tree_svg
 from planting_guide import get_planting_guide, get_maintenance_guide
-
+from user_profile import (
+    initialize_user_profile,
+    add_xp,
+    calculate_green_score,
+    display_profile_sidebar,
+    update_streak,
+    check_and_award_badges
+)
 # Set page configuration
 st.set_page_config(
     page_title="Tree Plantation Planner",
@@ -47,6 +55,11 @@ if 'planting_purpose' not in st.session_state:
     st.session_state.planting_purpose = []
 if 'balcony_direction' not in st.session_state:
     st.session_state.balcony_direction = 'East'
+    # Initialize user profile and update streak
+    initialize_user_profile()
+    # Initialize community
+    initialize_community()
+    update_streak()
 # App title and header
 st.title("🌳 Tree Plantation Planner")
 st.markdown("""
@@ -55,10 +68,17 @@ This tool helps you make informed decisions about tree plantation based on locat
 """)
 
 # Sidebar for navigation
+# Display user profile in sidebar
+display_profile_sidebar()
+
+# Sidebar for navigation
 page = st.sidebar.radio(
     "Navigate",
-    ["Home", "Tree Recommendations", "Planting Guide", "Impact Tracker", "About the Project"]
+    ["Home", "Tree Recommendations", "Planting Guide", "Impact Tracker", "Community", "About"]
 )
+
+# Display tree SVG
+display_tree_svg()
 
 # Display tree SVG in sidebar
 display_tree_svg()
@@ -186,6 +206,8 @@ if page == "Home":
                             st.success(f"✅ Found {len(st.session_state.recommended_trees)} trees!")
 
                         st.info("Go to 'Tree Recommendations' to see suitable trees for your location")
+                        # After: st.session_state.recommended_trees = get_...
+                        add_xp(10, "Got plant recommendations!")
                     else:
                         st.error("Location not found. Please try a different address.")
                 except Exception as e:
@@ -363,8 +385,10 @@ elif page == "Tree Recommendations":
                                     st.write(
                                         f"**Environmental Benefits**: {item.get('environmental_benefits', item.get('benefits', 'N/A'))}")
 
+                                # Inside the button click:
                                 if st.button(f"Select {item['name']}", key=f"item_{i + j}"):
                                     st.session_state.selected_tree = item
+                                    add_xp(5, f"Selected {item['name']}")
                                     st.info(f"✅ Selected {item['name']}. Go to 'Planting Guide' for details.")
         else:
             st.info("No tree recommendations available. Please return to the Home page and enter your location.")
@@ -579,7 +603,41 @@ elif page == "Planting Guide":
 
         # Add to planted trees
         st.subheader("Track This Plant")
+        # --- CREATE tree_to_track SAFELY ---
+        import datetime
+
+        # Ensure planted_trees exists
+        if "planted_trees" not in st.session_state:
+            st.session_state.planted_trees = []
+
+        # Ensure we have a 'tree' object from the recommendation or selection
+        # If not, avoid breaking the app
+        if 'tree' not in locals() and 'tree' not in st.session_state:
+            st.warning("No tree selected to track.")
+        else:
+            selected_tree = tree if 'tree' in locals() else st.session_state.tree
+
+            # Create a safe tracking object
+            tree_to_track = {
+                "name": selected_tree.get("name", "Unknown"),
+                "species": selected_tree.get("species", "Unknown"),
+                "planted_on": datetime.date.today().isoformat(),
+                "health_status": "Healthy",
+                "location": st.session_state.get("location", "Not Set"),
+                "notes": ""
+            }
+
+        # Inside "Track This Tree" / "Add to My Garden" button:
         if st.button("Add to My Garden"):
+            # ... existing code ...
+            st.session_state.planted_trees.append(tree_to_track)
+
+            # NEW: Add these lines
+            st.session_state.user_profile['trees_planted'] += 1
+            add_xp(50, f"Planted {tree['name']}!")
+            check_and_award_badges()
+
+            st.success(f"✅ {tree['name']} added to your tracked plants. View in 'Impact Tracker'.")
             # Add current date and initial status
             import datetime
 
@@ -619,13 +677,20 @@ elif page == "Impact Tracker":
                 "Current health:",
                 ["Excellent", "Good", "Fair", "Needs Attention", "Poor"]
             )
-        
-        if st.button("Update Status"):
-            for tree in st.session_state.planted_trees:
-                if tree['name'] == tree_to_update:
-                    tree['status'] = new_status
-                    tree['health'] = new_health
-                    break
+
+            # Inside "Update Status" button:
+            if st.button("Update Status"):
+                for tree in st.session_state.planted_trees:
+                    if tree['name'] == tree_to_update:
+                        tree['status'] = new_status
+                        tree['health'] = new_health
+                        break
+
+                # NEW: Add these lines
+                add_xp(20, "Updated plant status!")
+                check_and_award_badges()
+
+                st.success(f"Status updated for {tree_to_update}")
             st.success(f"Status updated for {tree_to_update}")
         
         # Calculate environmental impact
@@ -660,6 +725,13 @@ elif page == "Impact Tracker":
             legend_title='Benefit Type'
         )
         st.plotly_chart(fig)
+        # Community page
+        # Community Page
+
+
+elif page == "Community":
+    display_community_feed()
+
 
 # About page
 elif page == "About the Project":
