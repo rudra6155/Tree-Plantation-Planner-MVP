@@ -460,40 +460,63 @@ elif page == "Planting Guide":
                     st.markdown(f"**Step {i}**: {step}")
             else:
                 # Generic planting guide if specific one not available
+                # Step 1 — User selection
+                planting_mode = st.radio(
+                    "Where are you planting?",
+                    options=["Indoor", "Balcony / Outdoor"],
+                    index=0
+                )
+
+                # Step 2 — Convert user choice into a boolean
+                is_balcony = planting_mode == "Balcony / Outdoor"
+
+                # Step 3 — Show planting guide correctly
+            try:
+                # Step 1 — User selection
+                planting_mode = st.radio(
+                    "Where are you planting?",
+                    options=["Indoor", "Balcony / Outdoor"],
+                    index=0
+                )
+
+                # Step 2 — Convert user choice into a boolean
+                is_balcony = planting_mode == "Balcony / Outdoor"
+
+                # Step 3 — Show planting guide correctly
                 if is_balcony:
-                    st.markdown("""
-                    **Step 1**: Choose a pot with drainage holes (size: {})
+                    # Balcony / Outdoor planting guide
+                    st.markdown(f"""
+                    **Step 1:** Choose a pot with drainage holes (size: {tree.get('pot_size', '8-10 inches')})
 
-                    **Step 2**: Fill pot with well-draining potting mix
+                    **Step 2:** Fill pot with well-draining potting mix
 
-                    **Step 3**: Plant at the same depth as the nursery pot
+                    **Step 3:** Plant at the same depth as the nursery pot
 
-                    **Step 4**: Water thoroughly after planting
+                    **Step 4:** Water thoroughly after planting
 
-                    **Step 5**: Place in location with appropriate sunlight ({})
+                    **Step 5:** Place in location with appropriate sunlight ({tree.get('sunlight_need', 'moderate sunlight')})
 
-                    **Step 6**: Water as needed: {}
-                    """.format(
-                        tree.get('pot_size', '8-10 inches'),
-                        tree.get('sunlight_need', 'moderate sunlight'),
-                        tree.get('watering', 'regularly')
-                    ))
-                else:
-                    st.markdown("""
-                    **Step 1**: Dig a hole 2-3 times wider than the root ball
-
-                    **Step 2**: Remove the plant from container and loosen roots
-
-                    **Step 3**: Place tree in hole at proper depth
-
-                    **Step 4**: Fill hole with soil and water thoroughly
-
-                    **Step 5**: Add mulch around base (keep away from trunk)
-
-                    **Step 6**: Stake if necessary for support
+                    **Step 6:** Water as needed: {tree.get('watering', 'regularly')}
                     """)
-        except Exception as e:
-            st.warning(f"Planting guide not available for {tree['name']}. Showing general guidelines.")
+                else:
+                    # Indoor planting guide
+                    st.markdown(f"""
+                    **Step 1:** Pick a pot with drainage and good indoor mix (size: {tree.get('pot_size', '8-10 inches')})
+
+                    **Step 2:** Place pot near a window with {tree.get('sunlight_need', 'moderate sunlight')}
+
+                    **Step 3:** Plant at the same soil depth as nursery pot
+
+                    **Step 4:** Water lightly—avoid overwatering ({tree.get('watering', 'regularly')})
+
+                    **Step 5:** Rotate plant weekly for balanced growth
+
+                    **Step 6:** Keep away from AC vents and extreme temperatures
+                    """)
+
+            except Exception as e:
+                st.warning(f"Planting guide not available for {tree['name']}. Showing general guidelines.")
+
             if is_balcony:
                 st.markdown("""
                 **General Balcony Plant Care:**
@@ -512,8 +535,9 @@ elif page == "Planting Guide":
                 4. Mulch around base
                 5. Stake if needed
                 """)
+        except Exception as e:
+         st.warning("Error generating planting guide.")
 
-        # Maintenance calendar
         st.subheader("Maintenance Calendar")
 
         try:
