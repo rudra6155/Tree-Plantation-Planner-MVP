@@ -149,12 +149,7 @@ if page == "Home":
             st.session_state.is_balcony_mode = False
             st.info("🌳 Outdoor mode activated!")
 
-        # DEBUG INFO (Remove this later)
-        with st.expander("🔍 Debug Info - Current Settings"):
-            st.write("**Is Balcony Mode:**", st.session_state.is_balcony_mode)
-            st.write("**Space Size:**", st.session_state.get('space_size', 'Not set'))
-            st.write("**Sunlight Hours:**", st.session_state.get('sunlight_hours', 'Not set'))
-            st.write("**Purpose:**", st.session_state.get('planting_purpose', 'Not set'))
+
         # ---------- END NEW SECTION ----------
 
         # Location input
@@ -750,7 +745,7 @@ elif page == "Impact Tracker":
         )
         st.plotly_chart(fig)
         # Community page
-        # Community Page
+
 
 
 elif page == "Community":

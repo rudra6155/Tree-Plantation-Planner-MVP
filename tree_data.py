@@ -204,6 +204,8 @@ def get_tree_data():
     'mature_height': '10-15 feet',
     'lifespan': '15-20 years',
     'native_region': 'Tropical Americas, widely grown in India',
+            "climate suitability": ["Tropical", "Subtropical", "Temperate"],
+            "soil_suitability": ["Loamy", "Sandy", "Clay"],
     'purposes': ['Fruit Production', 'Shade'],
     'environmental_benefits': 'Produces edible fruit, attracts pollinators, provides shade',
     'climate_zones': ['Tropical', 'Sub-tropical'],
@@ -218,6 +220,8 @@ def get_tree_data():
     'mature_height': '8-12 feet',
     'lifespan': '3-5 years',
     'native_region': 'Central America, cultivated in India',
+    "climate_suitability": ["Tropical", "Subtropical", "Temperate"],
+    "soil_suitability": ["Loamy", "Sandy"],
     'purposes': ['Fruit Production', 'Fast Growing'],
     'environmental_benefits': 'Quick fruit production, low water requirement',
     'climate_zones': ['Tropical', 'Sub-tropical'],
@@ -232,6 +236,8 @@ def get_tree_data():
     'mature_height': '12-15 feet',
     'lifespan': '15-20 years',
     'native_region': 'Iran, widely cultivated in India',
+    "climate_suitability": ["Tropical", "Subtropical"],
+    "soil_suitability": ["Loamy", "Sandy"],
     'purposes': ['Fruit Production', 'Medicinal'],
     'environmental_benefits': 'Drought-resistant, medicinal fruit, attracts birds',
     'climate_zones': ['Tropical', 'Sub-tropical', 'Temperate'],
@@ -246,6 +252,8 @@ def get_tree_data():
     'mature_height': '25-30 feet',
     'lifespan': '15-20 years',
     'native_region': 'North India',
+    "climate_suitability": ["Tropical", "Subtropical"],
+    "soil_suitability": ["Loamy", "Sandy"],
     'purposes': ['Edible', 'Medicinal', 'Fast Growing'],
     'environmental_benefits': 'Superfood tree, drought-resistant, nitrogen-fixing',
     'climate_zones': ['Tropical', 'Sub-tropical'],
@@ -260,6 +268,8 @@ def get_tree_data():
     'mature_height': '15-20 feet',
     'lifespan': '20-25 years',
     'native_region': 'India, Sri Lanka',
+    "climate_suitability": ["Tropical", "Subtropical"],
+    "soil_suitability": ["Loamy", "Sandy"],
     'purposes': ['Edible', 'Aromatic', 'Medicinal'],
     'environmental_benefits': 'Aromatic leaves, medicinal properties, attracts beneficial insects',
     'climate_zones': ['Tropical', 'Sub-tropical'],
@@ -317,7 +327,7 @@ def get_balcony_plants_data():
             'benefits': 'Anti-inflammatory, stress relief, air purifier',
             'ideal_for': 'Sunny balconies',
             'pot_size': '8-10 inches',
-            'indoor_ok': False
+            'indoor_ok': True
         },
         {
             'name': 'Money Plant (Pothos)',
@@ -362,7 +372,7 @@ def get_balcony_plants_data():
             'benefits': 'Culinary herb, digestive aid',
             'ideal_for': 'Kitchen gardens',
             'pot_size': '8-10 inches',
-            'indoor_ok': False
+            'indoor_ok': True
         },
         {
             'name': 'Spider Plant',
@@ -392,7 +402,7 @@ def get_balcony_plants_data():
             'benefits': 'Fresh herbs, kitchen garden',
             'ideal_for': 'Balcony herb gardens',
             'pot_size': '8-10 inches',
-            'indoor_ok': False
+            'indoor_ok': True
         },
         {
             'name': 'Peace Lily',
@@ -422,7 +432,7 @@ def get_balcony_plants_data():
             'benefits': 'Fresh vegetables',
             'ideal_for': 'Sunny balconies, vegetable gardens',
             'pot_size': '12-14 inches',
-            'indoor_ok': False
+            'indoor_ok': True
         },
         {
             'name': 'Areca Palm',
@@ -441,6 +451,7 @@ def get_balcony_plants_data():
         }
     ]
     return balcony_plants
+
 tree_database = [
     {
         'name': 'Curry Leaves (Kadi Patta)',
@@ -453,10 +464,10 @@ tree_database = [
         'growth_rate': 'Medium',
         'max_height': '3-4 feet',
         'benefits': 'Fresh leaves for cooking, aids digestion, hair growth',
-        'environmental_benefits': 'Natural insect repellent, aromatic air freshener',
         'ideal_for': 'Kitchen gardens, sunny balconies',
+
         'pot_size': '12-14 inches',
-        'indoor_ok': False
+        'indoor_ok': True
     },
     {
         'name': 'Jade Plant',
@@ -469,7 +480,7 @@ tree_database = [
         'growth_rate': 'Slow',
         'max_height': '1-2 feet',
         'benefits': 'Good luck symbol, drought-tolerant, beautiful appearance',
-        'environmental_benefits': 'Air purification, releases oxygen at night',
+
         'ideal_for': 'Beginners, low-maintenance gardens',
         'pot_size': '6-8 inches',
         'indoor_ok': True
@@ -485,7 +496,7 @@ tree_database = [
         'growth_rate': 'Medium',
         'max_height': '3-5 feet (in pot)',
         'benefits': 'Excellent air purifier, removes formaldehyde',
-        'environmental_benefits': 'NASA-approved air purifier, low maintenance',
+
         'ideal_for': 'Living rooms, large balconies',
         'pot_size': '12-16 inches',
         'indoor_ok': True
@@ -501,10 +512,10 @@ tree_database = [
         'growth_rate': 'Fast',
         'max_height': '1-1.5 feet',
         'benefits': 'Fresh herbs for cooking, grows quickly',
-        'environmental_benefits': 'Attracts beneficial insects',
+
         'ideal_for': 'Kitchen gardens, beginners',
         'pot_size': '8-10 inches',
-        'indoor_ok': False
+        'indoor_ok': True
     },
     {
         'name': 'Boston Fern',
@@ -517,7 +528,7 @@ tree_database = [
         'growth_rate': 'Medium',
         'max_height': '2-3 feet',
         'benefits': 'Natural humidifier, removes toxins',
-        'environmental_benefits': 'Removes formaldehyde and xylene from air',
+
         'ideal_for': 'Bathrooms, humid spaces, hanging baskets',
         'pot_size': '10-12 inches',
         'indoor_ok': True
