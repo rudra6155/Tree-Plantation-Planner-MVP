@@ -204,7 +204,7 @@ def get_tree_data():
     'mature_height': '10-15 feet',
     'lifespan': '15-20 years',
     'native_region': 'Tropical Americas, widely grown in India',
-            "climate suitability": ["Tropical", "Subtropical", "Temperate"],
+            "climate_suitability": ["Tropical", "Subtropical", "Temperate"],
             "soil_suitability": ["Loamy", "Sandy", "Clay"],
     'purposes': ['Fruit Production', 'Shade'],
     'environmental_benefits': 'Produces edible fruit, attracts pollinators, provides shade',
@@ -448,89 +448,91 @@ def get_balcony_plants_data():
             'ideal_for': 'Large balconies, living rooms',
             'pot_size': '14-16 inches',
             'indoor_ok': True
+
+        },
+        # Add these 5 plants to the balcony_plants list in get_balcony_plants_data()
+        # Paste them BEFORE the line that says: return balcony_plants
+
+        {
+            'name': 'Curry Leaves (Kadi Patta)',
+            'scientific_name': 'Murraya koenigii',
+            'space_required': 'Medium',
+            'sunlight_need': 'High (6-8 hours)',
+            'watering': 'Daily',
+            'purposes': ['Edible', 'Aromatic', 'Medicinal'],
+            'care_difficulty': 'Medium',
+            'growth_rate': 'Medium',
+            'max_height': '3-4 feet',
+            'benefits': 'Fresh leaves for cooking, aids digestion, hair growth',
+            'environmental_benefits': 'Natural insect repellent, aromatic air freshener',
+            'ideal_for': 'Kitchen gardens, sunny balconies',
+            'pot_size': '12-14 inches',
+            'indoor_ok': False
+        },
+        {
+            'name': 'Jade Plant',
+            'scientific_name': 'Crassula ovata',
+            'space_required': 'Very Small',
+            'sunlight_need': 'Medium (4-6 hours)',
+            'watering': 'Once every 2 weeks',
+            'purposes': ['Aesthetic/Decor', 'Low Maintenance'],
+            'care_difficulty': 'Very Easy',
+            'growth_rate': 'Slow',
+            'max_height': '1-2 feet',
+            'benefits': 'Good luck symbol, drought-tolerant, beautiful appearance',
+            'environmental_benefits': 'Air purification, releases oxygen at night',
+            'ideal_for': 'Beginners, low-maintenance gardens',
+            'pot_size': '6-8 inches',
+            'indoor_ok': True
+        },
+        {
+            'name': 'Rubber Plant',
+            'scientific_name': 'Ficus elastica',
+            'space_required': 'Medium',
+            'sunlight_need': 'Medium (4-6 hours)',
+            'watering': 'Twice a week',
+            'purposes': ['Air Purification', 'Aesthetic/Decor'],
+            'care_difficulty': 'Easy',
+            'growth_rate': 'Medium',
+            'max_height': '3-5 feet (in pot)',
+            'benefits': 'Excellent air purifier, removes formaldehyde',
+            'environmental_benefits': 'NASA-approved air purifier, low maintenance',
+            'ideal_for': 'Living rooms, large balconies',
+            'pot_size': '12-16 inches',
+            'indoor_ok': True
+        },
+        {
+            'name': 'Coriander (Dhania)',
+            'scientific_name': 'Coriandrum sativum',
+            'space_required': 'Small',
+            'sunlight_need': 'Medium (4-6 hours)',
+            'watering': 'Daily (light)',
+            'purposes': ['Edible'],
+            'care_difficulty': 'Easy',
+            'growth_rate': 'Fast',
+            'max_height': '1-1.5 feet',
+            'benefits': 'Fresh herbs for cooking, grows quickly',
+            'environmental_benefits': 'Attracts beneficial insects',
+            'ideal_for': 'Kitchen gardens, beginners',
+            'pot_size': '8-10 inches',
+            'indoor_ok': False
+        },
+        {
+            'name': 'Boston Fern',
+            'scientific_name': 'Nephrolepis exaltata',
+            'space_required': 'Medium',
+            'sunlight_need': 'Low to Medium (2-4 hours)',
+            'watering': '3-4 times a week',
+            'purposes': ['Air Purification', 'Aesthetic/Decor'],
+            'care_difficulty': 'Medium',
+            'growth_rate': 'Medium',
+            'max_height': '2-3 feet',
+            'benefits': 'Natural humidifier, removes toxins',
+            'environmental_benefits': 'Removes formaldehyde and xylene from air',
+            'ideal_for': 'Bathrooms, humid spaces, hanging baskets',
+            'pot_size': '10-12 inches',
+            'indoor_ok': True
         }
     ]
     return balcony_plants
 
-tree_database = [
-    {
-        'name': 'Curry Leaves (Kadi Patta)',
-        'scientific_name': 'Murraya koenigii',
-        'space_required': 'Medium',
-        'sunlight_need': 'High (6-8 hours)',
-        'watering': 'Daily',
-        'purposes': ['Edible', 'Aromatic', 'Medicinal'],
-        'care_difficulty': 'Medium',
-        'growth_rate': 'Medium',
-        'max_height': '3-4 feet',
-        'benefits': 'Fresh leaves for cooking, aids digestion, hair growth',
-        'ideal_for': 'Kitchen gardens, sunny balconies',
-
-        'pot_size': '12-14 inches',
-        'indoor_ok': True
-    },
-    {
-        'name': 'Jade Plant',
-        'scientific_name': 'Crassula ovata',
-        'space_required': 'Very Small',
-        'sunlight_need': 'Medium (4-6 hours)',
-        'watering': 'Once every 2 weeks',
-        'purposes': ['Aesthetic/Decor', 'Low Maintenance'],
-        'care_difficulty': 'Very Easy',
-        'growth_rate': 'Slow',
-        'max_height': '1-2 feet',
-        'benefits': 'Good luck symbol, drought-tolerant, beautiful appearance',
-
-        'ideal_for': 'Beginners, low-maintenance gardens',
-        'pot_size': '6-8 inches',
-        'indoor_ok': True
-    },
-    {
-        'name': 'Rubber Plant',
-        'scientific_name': 'Ficus elastica',
-        'space_required': 'Medium',
-        'sunlight_need': 'Medium (4-6 hours)',
-        'watering': 'Twice a week',
-        'purposes': ['Air Purification', 'Aesthetic/Decor'],
-        'care_difficulty': 'Easy',
-        'growth_rate': 'Medium',
-        'max_height': '3-5 feet (in pot)',
-        'benefits': 'Excellent air purifier, removes formaldehyde',
-
-        'ideal_for': 'Living rooms, large balconies',
-        'pot_size': '12-16 inches',
-        'indoor_ok': True
-    },
-    {
-        'name': 'Coriander (Dhania)',
-        'scientific_name': 'Coriandrum sativum',
-        'space_required': 'Small',
-        'sunlight_need': 'Medium (4-6 hours)',
-        'watering': 'Daily (light)',
-        'purposes': ['Edible'],
-        'care_difficulty': 'Easy',
-        'growth_rate': 'Fast',
-        'max_height': '1-1.5 feet',
-        'benefits': 'Fresh herbs for cooking, grows quickly',
-
-        'ideal_for': 'Kitchen gardens, beginners',
-        'pot_size': '8-10 inches',
-        'indoor_ok': True
-    },
-    {
-        'name': 'Boston Fern',
-        'scientific_name': 'Nephrolepis exaltata',
-        'space_required': 'Medium',
-        'sunlight_need': 'Low to Medium (2-4 hours)',
-        'watering': '3-4 times a week',
-        'purposes': ['Air Purification', 'Aesthetic/Decor'],
-        'care_difficulty': 'Medium',
-        'growth_rate': 'Medium',
-        'max_height': '2-3 feet',
-        'benefits': 'Natural humidifier, removes toxins',
-
-        'ideal_for': 'Bathrooms, humid spaces, hanging baskets',
-        'pot_size': '10-12 inches',
-        'indoor_ok': True
-    }
-]

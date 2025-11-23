@@ -83,6 +83,27 @@ display_tree_svg()
 # Display tree SVG in sidebar
 display_tree_svg()
 
+
+def ensure_tree_has_fields(tree):
+    """Ensure tree object has all required fields with defaults"""
+    import datetime
+
+    defaults = {
+        'status': 'Newly Planted',
+        'health': 'Good',
+        'planted_date': datetime.datetime.now().strftime("%Y-%m-%d"),
+        'name': 'Unknown Plant',
+        'purposes': [],
+        'environmental_benefits': 'N/A',
+        'benefits': 'N/A'
+    }
+
+    for key, default_value in defaults.items():
+        if key not in tree:
+            tree[key] = default_value
+
+    return tree
+
 # Home page
 # Home page
 if page == "Home":
@@ -670,21 +691,32 @@ elif page == "Planting Guide":
 # Impact Tracker page
 elif page == "Impact Tracker":
     st.header("Tree Impact Tracker")
-    
+
+    # SAFETY CHECK: Ensure all tracked plants have required fields
+    for tree in st.session_state.get('planted_trees', []):
+        if 'status' not in tree:
+            tree['status'] = 'Newly Planted'
+        if 'health' not in tree:
+            tree['health'] = 'Good'
+        if 'planted_date' not in tree:
+            import datetime
+
+            tree['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
+
     if not st.session_state.planted_trees:
         st.info("You haven't tracked any trees yet. Go to 'Planting Guide' to track trees.")
     else:
         st.subheader("Your Tracked Trees")
-        
+
         # Table of tracked trees
         tracked_trees_df = pd.DataFrame(st.session_state.planted_trees)
         st.dataframe(tracked_trees_df[['name', 'planted_date', 'status', 'health']])
-        
+
         # Update tree status
         st.subheader("Update Tree Status")
         tree_names = [tree['name'] for tree in st.session_state.planted_trees]
         tree_to_update = st.selectbox("Select tree to update:", tree_names)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             new_status = st.selectbox(
@@ -697,25 +729,23 @@ elif page == "Impact Tracker":
                 ["Excellent", "Good", "Fair", "Needs Attention", "Poor"]
             )
 
-            # Inside "Update Status" button:
-            if st.button("Update Status"):
-                for tree in st.session_state.planted_trees:
-                    if tree['name'] == tree_to_update:
-                        tree['status'] = new_status
-                        tree['health'] = new_health
-                        break
+        if st.button("Update Status"):
+            for tree in st.session_state.planted_trees:
+                if tree['name'] == tree_to_update:
+                    tree['status'] = new_status
+                    tree['health'] = new_health
+                    break
 
-                # NEW: Add these lines
-                add_xp(20, "Updated plant status!")
-                check_and_award_badges()
+            # Add XP for updating
+            add_xp(20, "Updated plant status!")
+            check_and_award_badges()
 
-                st.success(f"Status updated for {tree_to_update}")
             st.success(f"Status updated for {tree_to_update}")
-        
+
         # Calculate environmental impact
         st.subheader("Environmental Impact")
         impact = calculate_impact(st.session_state.planted_trees)
-        
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Carbon Sequestered", f"{impact['carbon_sequestered']:.2f} kg")
@@ -723,16 +753,16 @@ elif page == "Impact Tracker":
             st.metric("Oxygen Produced", f"{impact['oxygen_produced']:.2f} kg")
         with col3:
             st.metric("Air Pollutants Removed", f"{impact['pollutants_removed']:.2f} g")
-        
+
         # Visualize impact over time
         st.subheader("Impact Over Time")
         st.write("As your trees grow, their environmental benefits increase:")
-        
+
         # Generate time series data for visualization
         years = list(range(1, 11))
         carbon_seq = [impact['carbon_sequestered'] * (year ** 0.8) for year in years]
         oxygen_prod = [impact['oxygen_produced'] * (year ** 0.7) for year in years]
-        
+
         # Create line chart
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=years, y=carbon_seq, mode='lines+markers', name='Carbon Sequestered (kg)'))
@@ -744,25 +774,22 @@ elif page == "Impact Tracker":
             legend_title='Benefit Type'
         )
         st.plotly_chart(fig)
-        # Community page
 
-
-
+# Community page
 elif page == "Community":
     display_community_feed()
 
-
 # About page
-elif page == "About the Project":
+elif page == "About":
     st.header("About the Tree Plantation Planner")
-    
+
     st.subheader("Project Objective")
     st.markdown("""
     The Tree Plantation Planner is designed to guide people in making smarter planting choices. 
     By recommending the right trees for the right places, it ensures that tree plantation efforts actually 
     benefit the environment, improve air quality, and support biodiversity.
     """)
-    
+
     st.subheader("Why We Created This Tool")
     st.markdown("""
     Across the world, large-scale afforestation efforts are undertaken to fight climate change, 
@@ -772,11 +799,11 @@ elif page == "About the Project":
     - Trees are planted randomly without considering local soil, climate, and biodiversity
     - High mortality rates leave behind empty land instead of thriving forests
     - Inappropriate tree choices damage ecosystems rather than restoring them
-    
+
     This project aims to fix these problems by helping individuals, communities, and policymakers 
     choose the right trees for the right places.
     """)
-    
+
     st.subheader("Social Impact")
     st.markdown("""
     Planting trees isn't just about filling up empty spaces—it's about making a difference. This project will:
@@ -785,10 +812,10 @@ elif page == "About the Project":
     - Improve public health by filtering pollutants and providing cleaner air
     - Enhance biodiversity by promoting native trees that sustain ecosystems
     - Encourage community participation, making tree plantation a shared responsibility
-    
+
     With this approach, tree plantation becomes more than just a symbolic act—it becomes a powerful environmental tool.
     """)
-    
+
     st.subheader("Research & Data Sources")
     st.markdown("""
     This project is backed by scientific research and real-world data:
@@ -801,6 +828,4 @@ elif page == "About the Project":
 
 # Footer
 st.markdown("---")
-st.markdown(
-    "Tree Plantation Planner | A data-driven approach to smarter afforestation"
-)
+st.markdown("Tree Plantation Planner | A data-driven approach to smarter afforestation")

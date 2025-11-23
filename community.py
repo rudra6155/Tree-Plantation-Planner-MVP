@@ -31,7 +31,7 @@ def initialize_community():
             },
             {
                 'id': str(uuid.uuid4()),
-                'username': 'EcoWarrior',
+                'username': 'Saul Goodman',
                 'content': 'Started my balcony garden today with Tulsi and Mint. Any care tips?',
                 'plant_name': None,
                 'timestamp': '2025-11-14T18:45:00',
