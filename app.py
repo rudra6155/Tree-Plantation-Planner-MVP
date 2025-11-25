@@ -250,64 +250,94 @@ if st.session_state.current_page == "Home":
             st.info("🌳 Outdoor mode activated!")
 
         # Location Input
+        # --------------------------------------
+        # 📍 LOCATION INPUT (GEOAPIFY VERSION)
+        # --------------------------------------
+        import requests
+
+        # 🔑 Your Geoapify API key
+        GEOAPIFY_API_KEY = "3d9387517a134215816c33937bf110fc"
+
+
+        def geocode_address(address):
+            url = "https://api.geoapify.com/v1/geocode/search"
+            params = {
+                "text": address,
+                "apiKey": GEOAPIFY_API_KEY
+            }
+
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                data = response.json()
+
+                if "features" in data and len(data["features"]) > 0:
+                    feature = data["features"][0]
+                    lon, lat = feature["geometry"]["coordinates"]
+                    formatted_address = feature["properties"]["formatted"]
+                    return formatted_address, lat, lon
+
+            except Exception as e:
+                st.error(f"Geoapify error: {e}")
+
+            return None, None, None
+
+
+        # ---- UI Starts Here ----
         st.subheader("📍 Enter your location")
         location_method = st.radio(
             "Choose location input method:",
             ["Search by address", "Use current location (requires permission)"]
         )
 
+        # -----------------------
+        # 🟥 OPTION 1: ADDRESS SEARCH
+        # -----------------------
         if location_method == "Search by address":
             address = st.text_input("Enter address, city, or region:")
 
             if st.button("🔍 Search Location", type="primary"):
-                try:
-                    geolocator = Nominatim(user_agent="tree_planner")
-                    location = geolocator.geocode(address)
+                full_addr, lat, lon = geocode_address(address)
 
-                    if location:
-                        st.session_state.location = {
-                            "address": location.address,
-                            "latitude": location.latitude,
-                            "longitude": location.longitude
-                        }
-                        st.success(f"✅ Location found: {location.address}")
+                if lat is not None:
+                    st.session_state.location = {
+                        "address": full_addr,
+                        "latitude": lat,
+                        "longitude": lon
+                    }
+                    st.success(f"✅ Location found: {full_addr}")
 
-                        # Get climate and soil data
-                        st.session_state.climate_data = get_climate_data(
-                            location.latitude,
-                            location.longitude
+                    # Fetch climate/soil data
+                    st.session_state.climate_data = get_climate_data(lat, lon)
+                    st.session_state.soil_data = get_soil_data(lat, lon)
+
+                    # Generate recommendations
+                    if st.session_state.is_balcony_mode:
+                        st.session_state.recommended_trees = get_balcony_recommendations(
+                            st.session_state.space_size,
+                            st.session_state.sunlight_hours,
+                            st.session_state.planting_purpose,
+                            st.session_state.climate_data
                         )
-                        st.session_state.soil_data = get_soil_data(
-                            location.latitude,
-                            location.longitude
-                        )
-
-                        # Generate recommendations
-                        if st.session_state.is_balcony_mode:
-                            st.session_state.recommended_trees = get_balcony_recommendations(
-                                st.session_state.space_size,
-                                st.session_state.sunlight_hours,
-                                st.session_state.planting_purpose,
-                                st.session_state.climate_data
-                            )
-                        else:
-                            st.session_state.recommended_trees = get_recommendations(
-                                st.session_state.climate_data,
-                                st.session_state.soil_data
-                            )
-
-                        st.success(f"✅ Found {len(st.session_state.recommended_trees)} plants!")
-                        add_xp(10, "Got plant recommendations!")
-
-                        # AUTO-NAVIGATE
-                        st.info("🚀 Redirecting to recommendations...")
-                        st.session_state.navigate_to = "Tree Recommendations"
-                        st.rerun()
                     else:
-                        st.error("Location not found. Please try again.")
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                        st.session_state.recommended_trees = get_recommendations(
+                            st.session_state.climate_data,
+                            st.session_state.soil_data
+                        )
 
+                    st.success(f"🌳 Found {len(st.session_state.recommended_trees)} recommendations!")
+                    add_xp(10, "Got plant recommendations!")
+
+                    # AUTO REDIRECT
+                    st.session_state.navigate_to = "Tree Recommendations"
+                    st.rerun()
+
+                else:
+                    st.error("❌ Location not found. Try another address.")
+
+
+        # -----------------------
+        # 🟦 OPTION 2: USE DEVICE LOCATION (unchanged)
+        # -----------------------
         else:
             st.info("Click below to use your device's location")
 
