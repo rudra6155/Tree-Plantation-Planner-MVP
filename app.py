@@ -6,9 +6,12 @@ from geopy.geocoders import Nominatim
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit.components.v1 as components
+import datetime
+import uuid
 
 # Import custom modules
-from tree_data import get_tree_data, get_tree_details
+from tree_data import get_tree_data, get_tree_details, get_balcony_plants_data
 from recommendation import get_recommendations, get_balcony_recommendations
 from climate_data import get_climate_data
 from soil_data import get_soil_types, get_soil_data
@@ -23,6 +26,7 @@ from user_profile import (
     update_streak,
     check_and_award_badges
 )
+
 # Set page configuration
 st.set_page_config(
     page_title="Tree Plantation Planner",
@@ -31,64 +35,133 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+# ----------------------
 # Initialize session state
-if 'location' not in st.session_state:
-    st.session_state.location = None
-if 'climate_data' not in st.session_state:
-    st.session_state.climate_data = None
-if 'soil_data' not in st.session_state:
-    st.session_state.soil_data = None
-if 'recommended_trees' not in st.session_state:
-    st.session_state.recommended_trees = None
-if 'selected_tree' not in st.session_state:
-    st.session_state.selected_tree = None
-if 'planted_trees' not in st.session_state:
-    st.session_state.planted_trees = []
-# NEW: Add these lines
-if 'is_balcony_mode' not in st.session_state:
-    st.session_state.is_balcony_mode = False
-if 'space_size' not in st.session_state:
-    st.session_state.space_size = 'Small (0.5-2 m²)'
-if 'sunlight_hours' not in st.session_state:
-    st.session_state.sunlight_hours = 6
-if 'planting_purpose' not in st.session_state:
-    st.session_state.planting_purpose = []
-if 'balcony_direction' not in st.session_state:
-    st.session_state.balcony_direction = 'East'
-    # Initialize user profile and update streak
+# ----------------------
+def init_session_state():
+    """Initialize all session state variables"""
+    defaults = {
+        'location': None,
+        'climate_data': None,
+        'soil_data': None,
+        'recommended_trees': None,
+        'selected_tree': None,
+        'planted_trees': [],
+        'is_balcony_mode': False,
+        'space_size': 'Small (0.5-2 m²)',
+        'sunlight_hours': 6,
+        'planting_purpose': [],
+        'balcony_direction': 'East',
+        'current_page': 'Home',
+        'watering_logs': {},  # NEW: {plant_id: [dates]}
+        'plant_photos': {},  # NEW: {plant_id: [photo_data]}
+        'care_reminders': {}  # NEW: {plant_id: reminder_data}
+    }
+
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+init_session_state()
+
+# Initialize user profile and community only once
+if 'user_profile' not in st.session_state:
     initialize_user_profile()
-    # Initialize community
     initialize_community()
     update_streak()
-# App title and header
-st.title("🌳 Tree Plantation Planner")
-st.markdown("""
-A data-driven approach to planting the right trees in the right places. 
-This tool helps you make informed decisions about tree plantation based on location, climate, and soil conditions.
-""")
 
-# Sidebar for navigation
+
+# ----------------------
+# FIXED NAVIGATION SYSTEM
+# ----------------------
+def navigate_to(page_name):
+    """Centralized navigation function"""
+    st.session_state.current_page = page_name
+    st.rerun()
+
+
+# Check for programmatic navigation request
+if 'navigate_to' in st.session_state and st.session_state.navigate_to:
+    st.session_state.current_page = st.session_state.navigate_to
+    st.session_state.navigate_to = None
+
+# ----------------------
+# FIXED LOCATION SYSTEM
+# ----------------------
+query_params = st.query_params
+
+# Handle geolocation from browser
+if "lat" in query_params and "lon" in query_params:
+    try:
+        lat = float(query_params["lat"])
+        lon = float(query_params["lon"])
+
+        # Reverse geocode to get address
+        geolocator = Nominatim(user_agent="tree_planner")
+        location = geolocator.reverse(f"{lat}, {lon}")
+
+        st.session_state.location = {
+            "address": location.address if location else f"Lat: {lat}, Lon: {lon}",
+            "latitude": lat,
+            "longitude": lon
+        }
+
+        # Fetch climate & soil data
+        st.session_state.climate_data = get_climate_data(lat, lon)
+        st.session_state.soil_data = get_soil_data(lat, lon)
+
+        # Generate recommendations
+        if st.session_state.is_balcony_mode:
+            st.session_state.recommended_trees = get_balcony_recommendations(
+                st.session_state.space_size,
+                st.session_state.sunlight_hours,
+                st.session_state.planting_purpose,
+                st.session_state.climate_data
+            )
+        else:
+            st.session_state.recommended_trees = get_recommendations(
+                st.session_state.climate_data,
+                st.session_state.soil_data
+            )
+
+        # Clear params and navigate
+        st.query_params.clear()
+        st.session_state.current_page = "Tree Recommendations"
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Error processing location: {e}")
+
+# ----------------------
+# Sidebar Navigation (READ ONLY - doesn't control page)
+# ----------------------
+page_options = ["Home", "Tree Recommendations", "Planting Guide", "Plant Care Tracker", "Impact Tracker", "Community",
+                "About"]
+
+# Display current page in sidebar
+with st.sidebar:
+    st.markdown(f"### 📍 Current Page: **{st.session_state.current_page}**")
+    st.markdown("---")
+
+    # Navigation buttons (replaces radio)
+    for page in page_options:
+        if st.button(page, key=f"nav_{page}", use_container_width=True):
+            navigate_to(page)
+
 # Display user profile in sidebar
 display_profile_sidebar()
-
-# Sidebar for navigation
-page = st.sidebar.radio(
-    "Navigate",
-    ["Home", "Tree Recommendations", "Planting Guide", "Impact Tracker", "Community", "About"]
-)
-
-# Display tree SVG
-display_tree_svg()
-
-# Display tree SVG in sidebar
 display_tree_svg()
 
 
+# ----------------------
+# Utility Functions
+# ----------------------
 def ensure_tree_has_fields(tree):
-    """Ensure tree object has all required fields with defaults"""
-    import datetime
-
+    """Ensure tree object has all required fields"""
     defaults = {
+        'id': str(uuid.uuid4()),
         'status': 'Newly Planted',
         'health': 'Good',
         'planted_date': datetime.datetime.now().strftime("%Y-%m-%d"),
@@ -104,9 +177,23 @@ def ensure_tree_has_fields(tree):
 
     return tree
 
-# Home page
-# Home page
-if page == "Home":
+
+# ----------------------
+# App Title
+# ----------------------
+st.title("🌳 Tree Plantation Planner")
+st.markdown("""
+A data-driven approach to planting the right trees in the right places.
+""")
+
+# ----------------------
+# PAGES
+# ----------------------
+
+# ===========================
+# HOME PAGE
+# ===========================
+if st.session_state.current_page == "Home":
     st.header("Welcome to Smart Tree Plantation")
 
     col1, col2 = st.columns([2, 1])
@@ -114,19 +201,14 @@ if page == "Home":
     with col1:
         st.subheader("Why plant trees strategically?")
         st.markdown("""
-        Random tree planting without considering local climate, soil, and biodiversity can do more harm than good.
         Strategic tree plantation ensures:
-
         - **Higher survival rates** for planted trees
         - **Better air quality** improvement
         - **Enhanced biodiversity** support
         - **Effective carbon sequestration**
-        - **Sustainable ecological balance**
-
-        Start by selecting your location to get tree recommendations tailored to your area.
         """)
 
-        # ---------- NEW: Urban / Balcony Mode Selection ----------
+        # Planting Mode Selection
         st.subheader("🏙️ Select Your Planting Space")
 
         planting_mode = st.radio(
@@ -135,7 +217,6 @@ if page == "Home":
             key="planting_mode_radio"
         )
 
-        # CRITICAL: Set session state IMMEDIATELY when radio changes
         if planting_mode == "🪴 Urban Balcony / Terrace / Indoor":
             st.session_state.is_balcony_mode = True
             st.success("✅ Balcony mode activated!")
@@ -147,19 +228,17 @@ if page == "Home":
                     ["Very Small (≤ 0.5 m²)", "Small (0.5-2 m²)", "Medium (2-5 m²)", "Large (>5 m²)"],
                     index=1
                 )
-
                 st.session_state.balcony_direction = st.selectbox(
-                    "Balcony/Terrace direction:",
+                    "Balcony direction:",
                     ["North", "East", "South", "West", "Not sure"],
                     index=1
                 )
 
             with col_space2:
                 st.session_state.sunlight_hours = st.slider(
-                    "Average daily sunlight (hours):",
+                    "Daily sunlight (hours):",
                     0, 12, 6
                 )
-
                 st.session_state.planting_purpose = st.multiselect(
                     "Your goals:",
                     ["Air Purification", "Edible (Herbs/Vegetables)", "Aesthetic/Decor",
@@ -170,28 +249,28 @@ if page == "Home":
             st.session_state.is_balcony_mode = False
             st.info("🌳 Outdoor mode activated!")
 
-
-        # ---------- END NEW SECTION ----------
-
-        # Location input
-        st.subheader("Enter your location")
-        location_method = st.radio("Choose location input method:",
-                                   ["Search by address", "Use current location (requires permission)"])
+        # Location Input
+        st.subheader("📍 Enter your location")
+        location_method = st.radio(
+            "Choose location input method:",
+            ["Search by address", "Use current location (requires permission)"]
+        )
 
         if location_method == "Search by address":
             address = st.text_input("Enter address, city, or region:")
 
-            if st.button("Search Location"):
+            if st.button("🔍 Search Location", type="primary"):
                 try:
                     geolocator = Nominatim(user_agent="tree_planner")
                     location = geolocator.geocode(address)
+
                     if location:
                         st.session_state.location = {
                             "address": location.address,
                             "latitude": location.latitude,
                             "longitude": location.longitude
                         }
-                        st.success(f"Location found: {location.address}")
+                        st.success(f"✅ Location found: {location.address}")
 
                         # Get climate and soil data
                         st.session_state.climate_data = get_climate_data(
@@ -203,133 +282,120 @@ if page == "Home":
                             location.longitude
                         )
 
-                        # Generate recommendations based on mode
+                        # Generate recommendations
                         if st.session_state.is_balcony_mode:
-                            st.info("🪴 Generating balcony plant recommendations...")
                             st.session_state.recommended_trees = get_balcony_recommendations(
                                 st.session_state.space_size,
                                 st.session_state.sunlight_hours,
                                 st.session_state.planting_purpose,
                                 st.session_state.climate_data
                             )
-                            st.success(f"✅ Found {len(st.session_state.recommended_trees)} balcony-friendly plants!")
                         else:
-                            st.info("🌳 Generating outdoor tree recommendations...")
                             st.session_state.recommended_trees = get_recommendations(
                                 st.session_state.climate_data,
                                 st.session_state.soil_data
                             )
-                            st.success(f"✅ Found {len(st.session_state.recommended_trees)} trees!")
 
-                        st.info("Go to 'Tree Recommendations' to see suitable trees for your location")
-                        # After: st.session_state.recommended_trees = get_...
+                        st.success(f"✅ Found {len(st.session_state.recommended_trees)} plants!")
                         add_xp(10, "Got plant recommendations!")
+
+                        # AUTO-NAVIGATE
+                        st.info("🚀 Redirecting to recommendations...")
+                        st.session_state.navigate_to = "Tree Recommendations"
+                        st.rerun()
                     else:
-                        st.error("Location not found. Please try a different address.")
+                        st.error("Location not found. Please try again.")
                 except Exception as e:
-                    st.error(f"Error locating address: {str(e)}")
+                    st.error(f"Error: {str(e)}")
+
         else:
-            st.info("Please allow location access when prompted by your browser.")
-            if st.button("Get Current Location"):
-                # In a real implementation, we would use JavaScript to get the exact location
-                # For this sample, we'll use a default location (New Delhi, India)
-                st.session_state.location = {
-                    "address": "New Delhi, India",
-                    "latitude": 28.6139,
-                    "longitude": 77.2090
+            st.info("Click below to use your device's location")
+
+            if st.button("📍 Get Current Location", type="primary"):
+                js = """
+                <script>
+                function getLocation() {
+                    if (!navigator.geolocation) {
+                        alert('Geolocation not supported');
+                        return;
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            const newUrl = window.location.pathname + '?lat=' + lat + '&lon=' + lon;
+                            window.location.href = newUrl;
+                        },
+                        (err) => {
+                            alert('Could not get location. Enable location permissions.');
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                    );
                 }
-
-                st.success(f"Using location: {st.session_state.location['address']}")
-
-                # Get climate and soil data
-                st.session_state.climate_data = get_climate_data(
-                    st.session_state.location['latitude'],
-                    st.session_state.location['longitude']
-                )
-                st.session_state.soil_data = get_soil_data(
-                    st.session_state.location['latitude'],
-                    st.session_state.location['longitude']
-                )
-
-                # Generate recommendations based on mode
-                if st.session_state.is_balcony_mode:
-                    st.info("🪴 Generating balcony plant recommendations...")
-                    st.session_state.recommended_trees = get_balcony_recommendations(
-                        st.session_state.space_size,
-                        st.session_state.sunlight_hours,
-                        st.session_state.planting_purpose,
-                        st.session_state.climate_data
-                    )
-                    st.success(f"✅ Found {len(st.session_state.recommended_trees)} balcony-friendly plants!")
-                else:
-                    st.info("🌳 Generating outdoor tree recommendations...")
-                    st.session_state.recommended_trees = get_recommendations(
-                        st.session_state.climate_data,
-                        st.session_state.soil_data
-                    )
-                    st.success(f"✅ Found {len(st.session_state.recommended_trees)} trees!")
-
-                st.info("Go to 'Tree Recommendations' to see suitable trees for your location")
+                getLocation();
+                </script>
+                """
+                components.html(js, height=0)
 
     with col2:
         st.subheader("Did you know?")
         st.markdown("""
-        - Over 50% of trees planted in mass afforestation projects die within a few years
-        - Planting the wrong trees can deplete groundwater reserves
-        - Urban green spaces with the right trees can reduce air pollution by up to 60%
-        - Grasslands and wetlands sometimes store more carbon than forests
+        - 50%+ of mass-planted trees die within years
+        - Wrong trees can deplete groundwater
+        - Right urban trees reduce pollution by 60%
         """)
 
         st.subheader("Key Benefits")
         st.markdown("""
-        - 🌱 Increased tree survival rate 
+        - 🌱 Increased survival rate
         - 🌍 Better carbon sequestration
         - 🌤️ Improved air quality
         - 🦋 Enhanced biodiversity
-        - 💧 Water conservation
         """)
-# Tree Recommendations page
-# Tree Recommendations page
-elif page == "Tree Recommendations":
+
+# ===========================
+# TREE RECOMMENDATIONS PAGE
+# ===========================
+elif st.session_state.current_page == "Tree Recommendations":
     st.header("🌱 Plant Recommendations")
 
     if st.session_state.location is None:
-        st.warning("Please enter your location on the Home page first.")
+        st.warning("⚠️ Please set your location on the Home page first.")
+        if st.button("← Go to Home", type="primary"):
+            navigate_to("Home")
     else:
         # Show mode badge
-        if st.session_state.get('is_balcony_mode', False):
-            st.success("🪴 **Balcony/Urban Mode** - Showing space-efficient plants")
+        if st.session_state.is_balcony_mode:
+            st.success("🪴 **Balcony Mode** - Space-efficient plants")
         else:
-            st.success("🌳 **Outdoor Mode** - Showing trees for ground planting")
+            st.success("🌳 **Outdoor Mode** - Ground planting trees")
 
-        st.subheader(f"📍 Location: {st.session_state.location['address']}")
+        st.subheader(f"📍 {st.session_state.location['address']}")
 
-        # Display climate and soil data
+        # Display climate and soil
         col1, col2 = st.columns(2)
 
         with col1:
             st.subheader("Climate Conditions")
             if st.session_state.climate_data:
-                st.write(f"Average Temperature: {st.session_state.climate_data['avg_temp']}°C")
-                st.write(f"Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
-                st.write(f"Humidity: {st.session_state.climate_data['humidity']}%")
-                st.write(f"Climate Zone: {st.session_state.climate_data['climate_zone']}")
-            else:
-                st.info("Climate data not available")
+                st.write(f"🌡️ Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
+                st.write(f"🌧️ Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
+                st.write(f"💧 Humidity: {st.session_state.climate_data['humidity']}%")
+                st.write(f"🌍 Climate Zone: {st.session_state.climate_data['climate_zone']}")
 
         with col2:
             st.subheader("Soil Conditions")
             if st.session_state.soil_data:
-                st.write(f"Soil Type: {st.session_state.soil_data['soil_type']}")
-                st.write(f"pH Level: {st.session_state.soil_data['ph_level']}")
-                st.write(f"Drainage: {st.session_state.soil_data['drainage']}")
-                st.write(f"Nutrient Level: {st.session_state.soil_data['nutrient_level']}")
-            else:
-                st.info("Soil data not available")
+                st.write(f"🪨 Soil Type: {st.session_state.soil_data['soil_type']}")
+                st.write(f"⚗️ pH Level: {st.session_state.soil_data['ph_level']}")
+                st.write(f"💧 Drainage: {st.session_state.soil_data['drainage']}")
+                st.write(f"🌱 Nutrients: {st.session_state.soil_data['nutrient_level']}")
 
-        # Display recommended trees/plants
-        st.subheader("Recommended Plants for Your Space")
+        # Display recommendations
+        st.subheader("Recommended Plants")
+
         if st.session_state.recommended_trees:
+            # Filters
             filter_col1, filter_col2 = st.columns(2)
 
             with filter_col1:
@@ -351,399 +417,252 @@ elif page == "Tree Recommendations":
             # Apply filters
             filtered_trees = st.session_state.recommended_trees
             if purpose_filter:
-                filtered_trees = [tree for tree in filtered_trees
-                                  if any(purpose in tree.get('purposes', []) for purpose in purpose_filter)]
+                filtered_trees = [t for t in filtered_trees if any(p in t.get('purposes', []) for p in purpose_filter)]
             if growth_rate_filter:
-                filtered_trees = [tree for tree in filtered_trees
-                                  if tree.get('growth_rate') in growth_rate_filter]
+                filtered_trees = [t for t in filtered_trees if t.get('growth_rate') in growth_rate_filter]
 
-            # Ensure backward compatibility - add missing fields
+            # Ensure fields exist
             for item in filtered_trees:
                 if 'environmental_benefits' not in item and 'benefits' in item:
                     item['environmental_benefits'] = item['benefits']
                 elif 'benefits' not in item and 'environmental_benefits' in item:
                     item['benefits'] = item['environmental_benefits']
 
-            # Display trees in a grid
-            num_items = len(filtered_trees)
-            if num_items == 0:
-                st.warning("No plants match your filter criteria. Please adjust your filters.")
+            # Display in grid
+            if len(filtered_trees) == 0:
+                st.warning("No plants match your filters. Adjust criteria.")
             else:
-                # Display in rows of 3
-                for i in range(0, num_items, 3):
+                for i in range(0, len(filtered_trees), 3):
                     cols = st.columns(3)
                     for j in range(3):
-                        if i + j < num_items:
+                        if i + j < len(filtered_trees):
                             item = filtered_trees[i + j]
                             with cols[j]:
-                                # Check if it's balcony mode or outdoor mode
-                                is_balcony_plant = 'space_required' in item
+                                is_balcony = 'space_required' in item
 
-                                if is_balcony_plant:
-                                    # BALCONY PLANT DISPLAY
+                                if is_balcony:
                                     st.subheader(f"🪴 {item['name']}")
-                                    st.write(f"**Scientific Name**: {item.get('scientific_name', 'N/A')}")
-                                    st.write(f"**Space Needed**: {item.get('space_required', 'N/A')}")
+                                    st.write(f"**Scientific**: {item.get('scientific_name', 'N/A')}")
+                                    st.write(f"**Space**: {item.get('space_required', 'N/A')}")
                                     st.write(f"**Sunlight**: {item.get('sunlight_need', 'N/A')}")
                                     st.write(f"**Watering**: {item.get('watering', 'N/A')}")
-                                    st.write(f"**Care Difficulty**: {item.get('care_difficulty', 'N/A')}")
-                                    st.write(f"**Pot Size**: {item.get('pot_size', 'N/A')}")
-                                    st.write(f"**Purposes**: {', '.join(item.get('purposes', []))}")
-                                    st.write(
-                                        f"**Benefits**: {item.get('benefits', item.get('environmental_benefits', 'N/A'))}")
-                                    st.write(f"**Ideal For**: {item.get('ideal_for', 'N/A')}")
+                                    st.write(f"**Difficulty**: {item.get('care_difficulty', 'N/A')}")
+                                    st.write(f"**Benefits**: {item.get('benefits', 'N/A')}")
                                 else:
-                                    # OUTDOOR TREE DISPLAY
                                     st.subheader(f"🌳 {item['name']}")
-                                    st.write(f"**Scientific Name**: {item.get('scientific_name', 'N/A')}")
+                                    st.write(f"**Scientific**: {item.get('scientific_name', 'N/A')}")
                                     st.write(f"**Growth Rate**: {item.get('growth_rate', 'N/A')}")
-                                    st.write(f"**Purposes**: {', '.join(item.get('purposes', []))}")
-                                    st.write(
-                                        f"**Environmental Benefits**: {item.get('environmental_benefits', item.get('benefits', 'N/A'))}")
+                                    st.write(f"**Benefits**: {item.get('environmental_benefits', 'N/A')}")
 
-                                # Inside the button click:
-                                if st.button(f"Select {item['name']}", key=f"item_{i + j}"):
+                                if st.button(f"Select {item['name']}", key=f"select_{i}_{j}"):
                                     st.session_state.selected_tree = item
                                     add_xp(5, f"Selected {item['name']}")
-                                    st.info(f"✅ Selected {item['name']}. Go to 'Planting Guide' for details.")
+                                    navigate_to("Planting Guide")
         else:
-            st.info("No tree recommendations available. Please return to the Home page and enter your location.")
-# Planting Guide page
-# Planting Guide page
-elif page == "Planting Guide":
-    st.header("Tree Planting & Maintenance Guide")
+            st.info("No recommendations yet. Return to Home to set location.")
+
+# ===========================
+# PLANTING GUIDE PAGE
+# ===========================
+elif st.session_state.current_page == "Planting Guide":
+    st.header("🌱 Planting & Maintenance Guide")
 
     if st.session_state.selected_tree is None:
-        st.warning("Please select a tree from the Recommendations page first.")
+        st.warning("⚠ No plant selected. Choose one from Recommendations.")
+        if st.button("← Go to Recommendations", type="primary"):
+            navigate_to("Tree Recommendations")
     else:
         tree = st.session_state.selected_tree
-        st.subheader(f"Planting Guide for {tree['name']}")
+        st.subheader(f"Guide for {tree['name']}")
 
-        # Check if it's a balcony plant or outdoor tree
         is_balcony = 'space_required' in tree
 
-        # Tree details
+        # Plant Details
         col1, col2 = st.columns([2, 1])
         with col1:
             st.markdown(f"### {tree['name']} ({tree.get('scientific_name', 'N/A')})")
 
             if is_balcony:
-                # BALCONY PLANT DETAILS
                 st.markdown(f"""
-                **Space Required**: {tree.get('space_required', 'N/A')}  
-                **Max Height**: {tree.get('max_height', 'N/A')}  
-                **Growth Rate**: {tree.get('growth_rate', 'N/A')}  
-                **Care Difficulty**: {tree.get('care_difficulty', 'N/A')}  
-                **Sunlight Need**: {tree.get('sunlight_need', 'N/A')}  
-                **Watering**: {tree.get('watering', 'N/A')}  
-                **Pot Size**: {tree.get('pot_size', 'N/A')}  
-
-                **Benefits**:  
-                {tree.get('benefits', tree.get('environmental_benefits', 'N/A'))}
-
-                **Best suited for**: {tree.get('ideal_for', ', '.join(tree.get('purposes', [])))}
+                *Space*: {tree.get('space_required', 'N/A')}  
+                *Max Height*: {tree.get('max_height', 'N/A')}  
+                *Sunlight*: {tree.get('sunlight_need', 'N/A')}  
+                *Watering*: {tree.get('watering', 'N/A')}  
+                *Difficulty*: {tree.get('care_difficulty', 'N/A')}  
+                *Pot Size*: {tree.get('pot_size', 'N/A')}  
+                *Benefits*: {tree.get('benefits', 'N/A')}
                 """)
             else:
-                # OUTDOOR TREE DETAILS
                 st.markdown(f"""
-                **Growth Rate**: {tree.get('growth_rate', 'N/A')}  
-                **Mature Height**: {tree.get('mature_height', 'N/A')}  
-                **Lifespan**: {tree.get('lifespan', 'N/A')}  
-                **Native Region**: {tree.get('native_region', 'N/A')}  
-
-                **Environmental Benefits**:  
-                {tree.get('environmental_benefits', tree.get('benefits', 'N/A'))}
-
-                **Best suited for**: {', '.join(tree.get('purposes', []))}
+                *Growth Rate*: {tree.get('growth_rate', 'N/A')}  
+                *Mature Height*: {tree.get('mature_height', 'N/A')}  
+                *Lifespan*: {tree.get('lifespan', 'N/A')}  
+                *Benefits*: {tree.get('environmental_benefits', 'N/A')}
                 """)
 
         with col2:
-            # Display icon or image placeholder
-            if is_balcony:
-                st.info("🪴 Balcony Plant")
-            else:
-                st.info("🌳 Outdoor Tree")
+            st.info("🪴 Balcony Plant" if is_balcony else "🌳 Outdoor Tree")
 
-        # Planting steps
-        st.subheader("Step-by-Step Planting Guide")
+        # Planting Steps
+        st.subheader("📋 Step-by-Step Planting")
 
-        # Get planting guide - use tree name
-        try:
-            planting_guide = get_planting_guide(tree['name'])
+        planting_guide = get_planting_guide(tree['name'])
 
-            if planting_guide and len(planting_guide) > 0:
-                for i, step in enumerate(planting_guide, 1):
-                    st.markdown(f"**Step {i}**: {step}")
-            else:
-                # Generic planting guide if specific one not available
-                # Step 1 — User selection
-                planting_mode = st.radio(
-                    "Where are you planting?",
-                    options=["Indoor", "Balcony / Outdoor"],
-                    index=0
-                )
-
-                # Step 2 — Convert user choice into a boolean
-                is_balcony = planting_mode == "Balcony / Outdoor"
-
-                # Step 3 — Show planting guide correctly
-            try:
-                # Step 1 — User selection
-                planting_mode = st.radio(
-                    "Where are you planting?",
-                    options=["Indoor", "Balcony / Outdoor"],
-                    index=0
-                )
-
-                # Step 2 — Convert user choice into a boolean
-                is_balcony = planting_mode == "Balcony / Outdoor"
-
-                # Step 3 — Show planting guide correctly
-                if is_balcony:
-                    # Balcony / Outdoor planting guide
-                    st.markdown(f"""
-                    **Step 1:** Choose a pot with drainage holes (size: {tree.get('pot_size', '8-10 inches')})
-
-                    **Step 2:** Fill pot with well-draining potting mix
-
-                    **Step 3:** Plant at the same depth as the nursery pot
-
-                    **Step 4:** Water thoroughly after planting
-
-                    **Step 5:** Place in location with appropriate sunlight ({tree.get('sunlight_need', 'moderate sunlight')})
-
-                    **Step 6:** Water as needed: {tree.get('watering', 'regularly')}
-                    """)
-                else:
-                    # Indoor planting guide
-                    st.markdown(f"""
-                    **Step 1:** Pick a pot with drainage and good indoor mix (size: {tree.get('pot_size', '8-10 inches')})
-
-                    **Step 2:** Place pot near a window with {tree.get('sunlight_need', 'moderate sunlight')}
-
-                    **Step 3:** Plant at the same soil depth as nursery pot
-
-                    **Step 4:** Water lightly—avoid overwatering ({tree.get('watering', 'regularly')})
-
-                    **Step 5:** Rotate plant weekly for balanced growth
-
-                    **Step 6:** Keep away from AC vents and extreme temperatures
-                    """)
-
-            except Exception as e:
-                st.warning(f"Planting guide not available for {tree['name']}. Showing general guidelines.")
-
+        if planting_guide and len(planting_guide) > 0:
+            for i, step in enumerate(planting_guide, 1):
+                st.markdown(f"*Step {i}*: {step}")
+        else:
+            # Generic guide
             if is_balcony:
                 st.markdown("""
-                **General Balcony Plant Care:**
-                1. Use a pot with drainage holes
-                2. Use quality potting mix
-                3. Water when top soil feels dry
-                4. Ensure adequate sunlight
-                5. Fertilize monthly during growing season
+                1. Choose pot with drainage holes
+                2. Fill with well-draining potting mix
+                3. Plant at same depth as nursery pot
+                4. Water thoroughly
+                5. Place in appropriate light
                 """)
             else:
                 st.markdown("""
-                **General Tree Planting:**
                 1. Dig appropriate sized hole
                 2. Plant at correct depth
                 3. Water deeply
                 4. Mulch around base
                 5. Stake if needed
                 """)
-        except Exception as e:
-         st.warning("Error generating planting guide.")
 
-        st.subheader("Maintenance Calendar")
+        # Maintenance Calendar
+        st.subheader("📅 Seasonal Maintenance")
 
-        try:
-            maintenance = get_maintenance_guide(tree['name'])
+        maintenance = get_maintenance_guide(tree['name'])
+        tabs = st.tabs(["Spring", "Summer", "Monsoon", "Winter"])
 
-            if maintenance and len(maintenance) > 0:
-                # Create tabs for seasons
-                tabs = st.tabs(["Spring", "Summer", "Monsoon", "Winter"])
+        seasons = ["Spring", "Summer", "Monsoon", "Winter"]
+        for i, season in enumerate(seasons):
+            with tabs[i]:
+                if maintenance and season in maintenance:
+                    for task in maintenance[season]:
+                        st.markdown(f"- {task}")
+                else:
+                    st.write("Follow general care guidelines")
 
-                for i, season in enumerate(["Spring", "Summer", "Monsoon", "Winter"]):
-                    with tabs[i]:
-                        if season in maintenance:
-                            for task in maintenance[season]:
-                                st.markdown(f"- {task}")
-                        else:
-                            st.write("No specific maintenance tasks for this season.")
-            else:
-                # Generic maintenance if specific guide not available
-                st.info("Showing general maintenance guidelines:")
-                tabs = st.tabs(["Spring", "Summer", "Monsoon", "Winter"])
+        # Track This Plant
+        st.subheader("📊 Track This Plant")
 
-                with tabs[0]:  # Spring
-                    if is_balcony:
-                        st.markdown("""
-                        - Start regular watering schedule
-                        - Apply balanced fertilizer
-                        - Prune dead leaves
-                        - Check for pests
-                        """)
-                    else:
-                        st.markdown("""
-                        - Inspect for winter damage
-                        - Apply fertilizer
-                        - Prune as needed
-                        - Check for pests and diseases
-                        """)
-
-                with tabs[1]:  # Summer
-                    if is_balcony:
-                        st.markdown("""
-                        - Water more frequently in heat
-                        - Provide shade if needed
-                        - Watch for leaf burn
-                        - Continue pest monitoring
-                        """)
-                    else:
-                        st.markdown("""
-                        - Deep water during dry spells
-                        - Maintain mulch layer
-                        - Watch for drought stress
-                        - Monitor for pests
-                        """)
-
-                with tabs[2]:  # Monsoon
-                    if is_balcony:
-                        st.markdown("""
-                        - Reduce watering frequency
-                        - Ensure good drainage
-                        - Protect from excess rain if needed
-                        - Watch for fungal issues
-                        """)
-                    else:
-                        st.markdown("""
-                        - Ensure proper drainage
-                        - Watch for fungal diseases
-                        - Support if needed in wind
-                        - Minimal watering needed
-                        """)
-
-                with tabs[3]:  # Winter
-                    if is_balcony:
-                        st.markdown("""
-                        - Reduce watering
-                        - Protect from frost if needed
-                        - Move indoors if frost-sensitive
-                        - Reduce fertilizer
-                        """)
-                    else:
-                        st.markdown("""
-                        - Water occasionally if dry
-                        - Protect young trees from frost
-                        - Avoid pruning
-                        - Plan spring activities
-                        """)
-        except Exception as e:
-            st.info("Maintenance calendar not available. Follow general care instructions above.")
-
-        # Add to planted trees
-        st.subheader("Track This Plant")
-        # --- CREATE tree_to_track SAFELY ---
-        import datetime
-
-        # Ensure planted_trees exists
-        if "planted_trees" not in st.session_state:
-            st.session_state.planted_trees = []
-
-        # Ensure we have a 'tree' object from the recommendation or selection
-        # If not, avoid breaking the app
-        if 'tree' not in locals() and 'tree' not in st.session_state:
-            st.warning("No tree selected to track.")
-        else:
-            selected_tree = tree if 'tree' in locals() else st.session_state.tree
-
-            # Create a safe tracking object
-            tree_to_track = {
-                "name": selected_tree.get("name", "Unknown"),
-                "species": selected_tree.get("species", "Unknown"),
-                "planted_on": datetime.date.today().isoformat(),
-                "health_status": "Healthy",
-                "location": st.session_state.get("location", "Not Set"),
-                "notes": ""
-            }
-
-        # Inside "Track This Tree" / "Add to My Garden" button:
-        if st.button("Add to My Garden"):
-            # ... existing code ...
-            st.session_state.planted_trees.append(tree_to_track)
-
-            # NEW: Add these lines
-            st.session_state.user_profile['trees_planted'] += 1
-            add_xp(50, f"Planted {tree['name']}!")
-            check_and_award_badges()
-
-            st.success(f"✅ {tree['name']} added to your tracked plants. View in 'Impact Tracker'.")
-            # Add current date and initial status
-            import datetime
-
+        if st.button("✅ Add to My Garden", type="primary"):
             tree_to_track = tree.copy()
+            tree_to_track['id'] = str(uuid.uuid4())  # UNIQUE ID
             tree_to_track['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
             tree_to_track['status'] = "Newly Planted"
             tree_to_track['health'] = "Good"
 
             st.session_state.planted_trees.append(tree_to_track)
-            st.success(f"✅ {tree['name']} added to your tracked plants. View in 'Impact Tracker'.")
-# Impact Tracker page
-elif page == "Impact Tracker":
-    st.header("Tree Impact Tracker")
+            st.session_state.user_profile['trees_planted'] = len(st.session_state.planted_trees)
 
-    # SAFETY CHECK: Ensure all tracked plants have required fields
-    for tree in st.session_state.get('planted_trees', []):
-        if 'status' not in tree:
-            tree['status'] = 'Newly Planted'
-        if 'health' not in tree:
-            tree['health'] = 'Good'
-        if 'planted_date' not in tree:
-            import datetime
-
-            tree['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-
-    if not st.session_state.planted_trees:
-        st.info("You haven't tracked any trees yet. Go to 'Planting Guide' to track trees.")
-    else:
-        st.subheader("Your Tracked Trees")
-
-        # Table of tracked trees
-        tracked_trees_df = pd.DataFrame(st.session_state.planted_trees)
-        st.dataframe(tracked_trees_df[['name', 'planted_date', 'status', 'health']])
-
-        # Update tree status
-        st.subheader("Update Tree Status")
-        tree_names = [tree['name'] for tree in st.session_state.planted_trees]
-        tree_to_update = st.selectbox("Select tree to update:", tree_names)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            new_status = st.selectbox(
-                "Current growth stage:",
-                ["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"]
-            )
-        with col2:
-            new_health = st.selectbox(
-                "Current health:",
-                ["Excellent", "Good", "Fair", "Needs Attention", "Poor"]
-            )
-
-        if st.button("Update Status"):
-            for tree in st.session_state.planted_trees:
-                if tree['name'] == tree_to_update:
-                    tree['status'] = new_status
-                    tree['health'] = new_health
-                    break
-
-            # Add XP for updating
-            add_xp(20, "Updated plant status!")
+            add_xp(50, f"Planted {tree['name']}!")
             check_and_award_badges()
 
-            st.success(f"Status updated for {tree_to_update}")
+            st.success(f"✅ {tree['name']} added! View in Plant Care Tracker.")
 
-        # Calculate environmental impact
-        st.subheader("Environmental Impact")
+            # AUTO-NAVIGATE
+            if st.button("📊 Go to Plant Care Tracker →"):
+                navigate_to("Plant Care Tracker")
+
+# ===========================
+# NEW: PLANT CARE TRACKER PAGE
+# ===========================
+elif st.session_state.current_page == "Plant Care Tracker":
+    st.header("🌿 Plant Care Tracker")
+
+    if not st.session_state.planted_trees:
+        st.info("No plants tracked yet. Add plants from the Planting Guide!")
+        if st.button("🌱 Go to Recommendations", type="primary"):
+            navigate_to("Tree Recommendations")
+    else:
+        st.subheader("🪴 Your Garden")
+
+        # Display all plants
+        for plant in st.session_state.planted_trees:
+            plant = ensure_tree_has_fields(plant)
+
+            with st.expander(f"🌱 {plant['name']} (Planted: {plant['planted_date']})"):
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.write(f"*Status*: {plant['status']}")
+                    st.write(f"*Health*: {plant['health']}")
+
+                with col2:
+                    # Watering log
+                    plant_id = plant['id']
+                    if plant_id not in st.session_state.watering_logs:
+                        st.session_state.watering_logs[plant_id] = []
+
+                    if st.button(f"💧 Log Watering", key=f"water_{plant_id}"):
+                        st.session_state.watering_logs[plant_id].append(datetime.datetime.now())
+                        st.success("Watered!")
+
+                    water_count = len(st.session_state.watering_logs.get(plant_id, []))
+                    st.write(f"Watered {water_count} times")
+
+                with col3:
+                    # Photo upload placeholder
+                    photo = st.file_uploader(f"📸 Upload photo", key=f"photo_{plant_id}", type=['jpg', 'png'])
+                    if photo:
+                        st.image(photo, width=150)
+
+                # Update health/status
+                new_status = st.selectbox(
+                    "Growth stage:",
+                    ["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"],
+                    key=f"status_{plant_id}"
+                )
+
+                new_health = st.selectbox(
+                    "Health:",
+                    ["Excellent", "Good", "Fair", "Needs Attention", "Poor"],
+                    key=f"health_{plant_id}"
+                )
+
+                if st.button(f"Update {plant['name']}", key=f"update_{plant_id}"):
+                    plant['status'] = new_status
+                    plant['health'] = new_health
+                    add_xp(20, "Updated plant status!")
+                    st.success("Updated!")
+
+        # Watering reminders section
+        st.subheader("⏰ Upcoming Care Tasks")
+        st.info("Set reminders for watering, fertilizing, pruning (Coming soon!)")
+
+
+# ===========================
+# IMPACT TRACKER PAGE
+# ===========================
+elif st.session_state.current_page == "Impact Tracker":
+    st.header("📊 Environmental Impact Tracker")
+
+    if not st.session_state.planted_trees:
+        st.info("No plants tracked yet!")
+        if st.button("🌱 Start Planting", type="primary"):
+            navigate_to("Home")
+    else:
+        st.subheader("🌳 Your Tracked Plants")
+
+        # Display as table
+        df_data = []
+        for plant in st.session_state.planted_trees:
+            plant = ensure_tree_has_fields(plant)
+            df_data.append({
+                'Name': plant['name'],
+                'Planted': plant['planted_date'],
+                'Status': plant['status'],
+                'Health': plant['health']
+            })
+
+        df = pd.DataFrame(df_data)
+        st.dataframe(df, use_container_width=True)
+
+        # Environmental impact
+        st.subheader("🌍 Environmental Impact")
         impact = calculate_impact(st.session_state.planted_trees)
 
         col1, col2, col3 = st.columns(3)
@@ -752,35 +671,40 @@ elif page == "Impact Tracker":
         with col2:
             st.metric("Oxygen Produced", f"{impact['oxygen_produced']:.2f} kg")
         with col3:
-            st.metric("Air Pollutants Removed", f"{impact['pollutants_removed']:.2f} g")
+            st.metric("Pollutants Removed", f"{impact['pollutants_removed']:.2f} g")
 
-        # Visualize impact over time
-        st.subheader("Impact Over Time")
-        st.write("As your trees grow, their environmental benefits increase:")
+        # Projection chart
+        st.subheader("📈 Projected Benefits (10 Years)")
 
-        # Generate time series data for visualization
         years = list(range(1, 11))
         carbon_seq = [impact['carbon_sequestered'] * (year ** 0.8) for year in years]
         oxygen_prod = [impact['oxygen_produced'] * (year ** 0.7) for year in years]
 
-        # Create line chart
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=years, y=carbon_seq, mode='lines+markers', name='Carbon Sequestered (kg)'))
-        fig.add_trace(go.Scatter(x=years, y=oxygen_prod, mode='lines+markers', name='Oxygen Produced (kg)'))
+        fig.add_trace(go.Scatter(x=years, y=carbon_seq, mode='lines+markers', name='Carbon (kg)'))
+        fig.add_trace(go.Scatter(x=years, y=oxygen_prod, mode='lines+markers', name='Oxygen (kg)'))
         fig.update_layout(
-            title='Projected Environmental Benefits Over 10 Years',
+            title='Environmental Benefits Over Time',
             xaxis_title='Years',
-            yaxis_title='Amount (kg)',
-            legend_title='Benefit Type'
+            yaxis_title='Amount (kg)'
         )
         st.plotly_chart(fig)
 
-# Community page
-elif page == "Community":
+# ===========================
+# COMMUNITY PAGE
+# ===========================
+elif st.session_state.current_page == "Community":
     display_community_feed()
 
+# ===========================
+# ABOUT PAGE
+# ===========================
+
 # About page
-elif page == "About":
+# ----------------------
+# About page
+# ----------------------
+elif st.session_state.current_page == "About":
     st.header("About the Tree Plantation Planner")
 
     st.subheader("Project Objective")
@@ -796,22 +720,48 @@ elif page == "About":
     improve air quality, and restore ecosystems. However, many of these efforts fail to produce 
     real impact because:
 
-    - Trees are planted randomly without considering local soil, climate, and biodiversity
-    - High mortality rates leave behind empty land instead of thriving forests
-    - Inappropriate tree choices damage ecosystems rather than restoring them
+    - Trees are planted randomly without considering local soil, climate, and biodiversity  
+    - High mortality rates leave behind empty land instead of thriving forests  
+    - Inappropriate tree choices damage ecosystems rather than restoring them  
 
     This project aims to fix these problems by helping individuals, communities, and policymakers 
     choose the right trees for the right places.
+    """)
+
+    st.subheader("Balcony Plantation")
+    st.markdown("""
+    Not everyone has access to large open spaces—but **everyone can still contribute** to the planet.
+
+    ### 🌱 Why Balcony Plantation Matters
+    Balcony plants:
+    - Improve indoor and outdoor air quality  
+    - Increase oxygen levels in compact urban homes  
+    - Reduce heat in apartments through natural cooling  
+    - Support pollinators like butterflies and bees  
+    - Boost mental well-being and reduce stress  
+
+    Even a single balcony garden can make a measurable environmental difference in densely populated cities.
+
+    ### 🌿 How The Planner Helps Balcony Gardeners
+    Our system provides:
+    - **Personalized balcony plant recommendations** based on sunlight exposure, pot size, and climate  
+    - **Low-maintenance plant options** for beginners  
+    - **Native balcony plant suggestions** that survive longer and support biodiversity  
+    - **Growth and care guidelines** tailored to small spaces  
+    - **Impact tracking** so users can measure the environmental benefit of their balcony garden  
+
+    This helps people living in cities create a greener lifestyle using the limited space they have— 
+    turning balconies into mini-ecosystems with meaningful environmental impact.
     """)
 
     st.subheader("Social Impact")
     st.markdown("""
     Planting trees isn't just about filling up empty spaces—it's about making a difference. This project will:
 
-    - Reduce air pollution by increasing tree cover in high-pollution areas
-    - Improve public health by filtering pollutants and providing cleaner air
-    - Enhance biodiversity by promoting native trees that sustain ecosystems
-    - Encourage community participation, making tree plantation a shared responsibility
+    - Reduce air pollution by increasing tree cover in high-pollution areas  
+    - Improve public health by filtering pollutants and providing cleaner air  
+    - Enhance biodiversity by promoting native trees that sustain ecosystems  
+    - Encourage community participation, making tree plantation a shared responsibility  
 
     With this approach, tree plantation becomes more than just a symbolic act—it becomes a powerful environmental tool.
     """)
@@ -820,10 +770,10 @@ elif page == "About":
     st.markdown("""
     This project is backed by scientific research and real-world data:
 
-    - World Health Organization (WHO) – Reports on urban forestry and air pollution
-    - NASA Climate Change Data – Research on deforestation and afforestation impact
-    - IPCC Climate Reports (2023) – Studies on afforestation as a climate change solution
-    - Food and Agriculture Organization (FAO) Report (2023) – Global forest mortality studies
+    - World Health Organization (WHO) – Reports on urban forestry and air pollution  
+    - NASA Climate Change Data – Research on deforestation and afforestation impact  
+    - IPCC Climate Reports (2023) – Studies on afforestation as a climate change solution  
+    - Food and Agriculture Organization (FAO) Report (2023) – Global forest mortality studies  
     """)
 
 # Footer
