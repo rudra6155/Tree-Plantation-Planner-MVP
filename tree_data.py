@@ -281,13 +281,14 @@ def get_tree_data():
     
     return trees
 
+
 def get_tree_details(tree_name):
     """
     Returns detailed information about a specific tree.
-    
+
     Args:
         tree_name (str): The name of the tree to get details for
-        
+
     Returns:
         dict: Tree details or None if not found
     """
@@ -296,6 +297,8 @@ def get_tree_details(tree_name):
         if tree["name"].lower() == tree_name.lower():
             return tree
     return None
+
+# tree_data.py — include your existing get_tree_data() list (keep it), and ensure this function exists:
 def get_balcony_plants_data():
     """Returns dataset of balcony-friendly plants"""
     balcony_plants = [
@@ -535,4 +538,3 @@ def get_balcony_plants_data():
         }
     ]
     return balcony_plants
-
