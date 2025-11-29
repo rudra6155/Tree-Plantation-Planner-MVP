@@ -142,7 +142,7 @@ page_options = ["Home", "Tree Recommendations", "Planting Guide", "Plant Care Tr
 
 # Display current page in sidebar
 with st.sidebar:
-    st.markdown(f"### 📍 Current Page: **{st.session_state.current_page}**")
+    st.markdown(f"### 📍 Current Page: *{st.session_state.current_page}*")
     st.markdown("---")
 
     # Navigation buttons (replaces radio)
@@ -202,14 +202,14 @@ if st.session_state.current_page == "Home":
         st.subheader("Why plant trees strategically?")
         st.markdown("""
         Strategic tree plantation ensures:
-        - **Higher survival rates** for planted trees
-        - **Better air quality** improvement
-        - **Enhanced biodiversity** support
-        - **Effective carbon sequestration**
+        - *Higher survival rates* for planted trees
+        - *Better air quality* improvement
+        - *Enhanced biodiversity* support
+        - *Effective carbon sequestration*
         """)
 
         # Planting Mode Selection
-        st.subheader("🏙️ Select Your Planting Space")
+        st.subheader("🏙 Select Your Planting Space")
 
         planting_mode = st.radio(
             "Where are you planning to plant?",
@@ -349,7 +349,7 @@ if st.session_state.current_page == "Home":
         st.markdown("""
         - 🌱 Increased survival rate
         - 🌍 Better carbon sequestration
-        - 🌤️ Improved air quality
+        - 🌤 Improved air quality
         - 🦋 Enhanced biodiversity
         """)
 
@@ -360,15 +360,15 @@ elif st.session_state.current_page == "Tree Recommendations":
     st.header("🌱 Plant Recommendations")
 
     if st.session_state.location is None:
-        st.warning("⚠️ Please set your location on the Home page first.")
+        st.warning("⚠ Please set your location on the Home page first.")
         if st.button("← Go to Home", type="primary"):
             navigate_to("Home")
     else:
         # Show mode badge
         if st.session_state.is_balcony_mode:
-            st.success("🪴 **Balcony Mode** - Space-efficient plants")
+            st.success("🪴 *Balcony Mode* - Space-efficient plants")
         else:
-            st.success("🌳 **Outdoor Mode** - Ground planting trees")
+            st.success("🌳 *Outdoor Mode* - Ground planting trees")
 
         st.subheader(f"📍 {st.session_state.location['address']}")
 
@@ -378,8 +378,8 @@ elif st.session_state.current_page == "Tree Recommendations":
         with col1:
             st.subheader("Climate Conditions")
             if st.session_state.climate_data:
-                st.write(f"🌡️ Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
-                st.write(f"🌧️ Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
+                st.write(f"🌡 Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
+                st.write(f"🌧 Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
                 st.write(f"💧 Humidity: {st.session_state.climate_data['humidity']}%")
                 st.write(f"🌍 Climate Zone: {st.session_state.climate_data['climate_zone']}")
 
@@ -387,7 +387,7 @@ elif st.session_state.current_page == "Tree Recommendations":
             st.subheader("Soil Conditions")
             if st.session_state.soil_data:
                 st.write(f"🪨 Soil Type: {st.session_state.soil_data['soil_type']}")
-                st.write(f"⚗️ pH Level: {st.session_state.soil_data['ph_level']}")
+                st.write(f"⚗ pH Level: {st.session_state.soil_data['ph_level']}")
                 st.write(f"💧 Drainage: {st.session_state.soil_data['drainage']}")
                 st.write(f"🌱 Nutrients: {st.session_state.soil_data['nutrient_level']}")
 
@@ -442,17 +442,17 @@ elif st.session_state.current_page == "Tree Recommendations":
 
                                 if is_balcony:
                                     st.subheader(f"🪴 {item['name']}")
-                                    st.write(f"**Scientific**: {item.get('scientific_name', 'N/A')}")
-                                    st.write(f"**Space**: {item.get('space_required', 'N/A')}")
-                                    st.write(f"**Sunlight**: {item.get('sunlight_need', 'N/A')}")
-                                    st.write(f"**Watering**: {item.get('watering', 'N/A')}")
-                                    st.write(f"**Difficulty**: {item.get('care_difficulty', 'N/A')}")
-                                    st.write(f"**Benefits**: {item.get('benefits', 'N/A')}")
+                                    st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
+                                    st.write(f"*Space*: {item.get('space_required', 'N/A')}")
+                                    st.write(f"*Sunlight*: {item.get('sunlight_need', 'N/A')}")
+                                    st.write(f"*Watering*: {item.get('watering', 'N/A')}")
+                                    st.write(f"*Difficulty*: {item.get('care_difficulty', 'N/A')}")
+                                    st.write(f"*Benefits*: {item.get('benefits', 'N/A')}")
                                 else:
                                     st.subheader(f"🌳 {item['name']}")
-                                    st.write(f"**Scientific**: {item.get('scientific_name', 'N/A')}")
-                                    st.write(f"**Growth Rate**: {item.get('growth_rate', 'N/A')}")
-                                    st.write(f"**Benefits**: {item.get('environmental_benefits', 'N/A')}")
+                                    st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
+                                    st.write(f"*Growth Rate*: {item.get('growth_rate', 'N/A')}")
+                                    st.write(f"*Benefits*: {item.get('environmental_benefits', 'N/A')}")
 
                                 if st.button(f"Select {item['name']}", key=f"select_{i}_{j}"):
                                     st.session_state.selected_tree = item
@@ -468,7 +468,7 @@ elif st.session_state.current_page == "Planting Guide":
     st.header("🌱 Planting & Maintenance Guide")
 
     if st.session_state.selected_tree is None:
-        st.warning("⚠️ No plant selected. Choose one from Recommendations.")
+        st.warning("⚠ No plant selected. Choose one from Recommendations.")
         if st.button("← Go to Recommendations", type="primary"):
             navigate_to("Tree Recommendations")
     else:
@@ -484,20 +484,20 @@ elif st.session_state.current_page == "Planting Guide":
 
             if is_balcony:
                 st.markdown(f"""
-                **Space**: {tree.get('space_required', 'N/A')}  
-                **Max Height**: {tree.get('max_height', 'N/A')}  
-                **Sunlight**: {tree.get('sunlight_need', 'N/A')}  
-                **Watering**: {tree.get('watering', 'N/A')}  
-                **Difficulty**: {tree.get('care_difficulty', 'N/A')}  
-                **Pot Size**: {tree.get('pot_size', 'N/A')}  
-                **Benefits**: {tree.get('benefits', 'N/A')}
+                *Space*: {tree.get('space_required', 'N/A')}  
+                *Max Height*: {tree.get('max_height', 'N/A')}  
+                *Sunlight*: {tree.get('sunlight_need', 'N/A')}  
+                *Watering*: {tree.get('watering', 'N/A')}  
+                *Difficulty*: {tree.get('care_difficulty', 'N/A')}  
+                *Pot Size*: {tree.get('pot_size', 'N/A')}  
+                *Benefits*: {tree.get('benefits', 'N/A')}
                 """)
             else:
                 st.markdown(f"""
-                **Growth Rate**: {tree.get('growth_rate', 'N/A')}  
-                **Mature Height**: {tree.get('mature_height', 'N/A')}  
-                **Lifespan**: {tree.get('lifespan', 'N/A')}  
-                **Benefits**: {tree.get('environmental_benefits', 'N/A')}
+                *Growth Rate*: {tree.get('growth_rate', 'N/A')}  
+                *Mature Height*: {tree.get('mature_height', 'N/A')}  
+                *Lifespan*: {tree.get('lifespan', 'N/A')}  
+                *Benefits*: {tree.get('environmental_benefits', 'N/A')}
                 """)
 
         with col2:
@@ -510,7 +510,7 @@ elif st.session_state.current_page == "Planting Guide":
 
         if planting_guide and len(planting_guide) > 0:
             for i, step in enumerate(planting_guide, 1):
-                st.markdown(f"**Step {i}**: {step}")
+                st.markdown(f"*Step {i}*: {step}")
         else:
             # Generic guide
             if is_balcony:
@@ -588,8 +588,8 @@ elif st.session_state.current_page == "Plant Care Tracker":
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    st.write(f"**Status**: {plant['status']}")
-                    st.write(f"**Health**: {plant['health']}")
+                    st.write(f"*Status*: {plant['status']}")
+                    st.write(f"*Health*: {plant['health']}")
 
                 with col2:
                     # Watering log
@@ -718,9 +718,9 @@ elif st.session_state.current_page == "About":
     real impact because:
 
     - 🌱 Trees are planted randomly without considering local soil, climate, and biodiversity
-    - ☠️ High mortality rates leave behind empty land instead of thriving forests
-    - ⚠️ Inappropriate tree choices damage ecosystems rather than restoring them
-    - 🏙️ Urban dwellers lack guidance on space-efficient planting options
+    - ☠ High mortality rates leave behind empty land instead of thriving forests
+    - ⚠ Inappropriate tree choices damage ecosystems rather than restoring them
+    - 🏙 Urban dwellers lack guidance on space-efficient planting options
 
     This project aims to fix these problems by helping individuals, communities, and policymakers 
     choose the right plants for the right places—from large outdoor trees to compact balcony plants.
@@ -738,11 +738,11 @@ elif st.session_state.current_page == "About":
         With rapid urbanization, millions of people live in apartments without access to traditional gardens. 
         Yet urban green spaces are crucial for:
 
-        - **Air Quality**: Indoor plants remove toxins like formaldehyde, benzene, and CO₂
-        - **Mental Health**: Studies show plants reduce stress and improve mood by 30%
-        - **Food Security**: Growing herbs and vegetables reduces carbon footprint from transportation
-        - **Urban Heat Islands**: Balcony gardens can reduce indoor temperatures by 3-5°C
-        - **Biodiversity**: Even small plants provide habitats for pollinators like bees and butterflies
+        - *Air Quality*: Indoor plants remove toxins like formaldehyde, benzene, and CO₂
+        - *Mental Health*: Studies show plants reduce stress and improve mood by 30%
+        - *Food Security*: Growing herbs and vegetables reduces carbon footprint from transportation
+        - *Urban Heat Islands*: Balcony gardens can reduce indoor temperatures by 3-5°C
+        - *Biodiversity*: Even small plants provide habitats for pollinators like bees and butterflies
 
         #### The Urban Challenge
 
@@ -753,43 +753,43 @@ elif st.session_state.current_page == "About":
         - Lack of soil/gardening knowledge
 
         Our balcony mode solves this by recommending:
-        ✅ **Space-efficient plants** that thrive in pots  
-        ✅ **Low-maintenance options** for busy lifestyles  
-        ✅ **Sunlight-adapted species** for shaded balconies  
-        ✅ **Edible & medicinal plants** for practical benefits  
+        ✅ *Space-efficient plants* that thrive in pots  
+        ✅ *Low-maintenance options* for busy lifestyles  
+        ✅ *Sunlight-adapted species* for shaded balconies  
+        ✅ *Edible & medicinal plants* for practical benefits  
         """)
 
     with col2:
         st.markdown("""
         #### Balcony Planting by the Numbers
 
-        🌿 **Global Impact**:
+        🌿 *Global Impact*:
         - 55% of world population lives in urban areas (UN, 2023)
         - 80% lack access to traditional gardens
         - Urban balcony gardens can offset 2-5 kg CO₂/year per plant
 
-        🇮🇳 **India-Specific Data**:
+        🇮🇳 *India-Specific Data*:
         - 35% of Indians live in urban areas (Census 2021)
         - Mumbai & Delhi have <10m² green space per capita (WHO recommends 50m²)
         - Air pollution causes 1.67 million deaths annually (Lancet, 2022)
 
-        🌱 **Success Stories**:
+        🌱 *Success Stories*:
         - Singapore's "City in a Garden" increased urban greenery to 47%
         - Tokyo's balcony gardens reduced AC usage by 20%
         - Bangalore's "Balcony Garden Movement" has 50,000+ participants
 
         #### What You Can Grow
 
-        **Herbs & Vegetables**:  
+        *Herbs & Vegetables*:  
         Mint, Coriander, Curry Leaves, Tomatoes, Chillies, Spinach
 
-        **Air Purifiers**:  
+        *Air Purifiers*:  
         Snake Plant, Money Plant, Spider Plant, Peace Lily, Aloe Vera
 
-        **Medicinal**:  
+        *Medicinal*:  
         Tulsi (Holy Basil), Aloe Vera, Brahmi, Ashwagandha
 
-        **Aesthetic**:  
+        *Aesthetic*:  
         Jade Plant, Areca Palm, Boston Fern, Rubber Plant
         """)
 
@@ -802,30 +802,30 @@ elif st.session_state.current_page == "About":
         st.markdown("""
         #### Setting Up Your Balcony Garden
 
-        **1. Assess Your Space**:
+        *1. Assess Your Space*:
         - Measure available area (length × width)
         - Note sunlight hours (use a sun calculator app)
         - Check balcony direction (North/South/East/West)
         - Consider weight limits (consult building regulations)
 
-        **2. Choose Right Containers**:
-        - **Plastic pots**: Lightweight, affordable, retain moisture
-        - **Terracotta**: Breathable, good for succulents, heavier
-        - **Grow bags**: Space-saving, good drainage, portable
-        - **Vertical planters**: Maximize space for herbs
+        *2. Choose Right Containers*:
+        - *Plastic pots*: Lightweight, affordable, retain moisture
+        - *Terracotta*: Breathable, good for succulents, heavier
+        - *Grow bags*: Space-saving, good drainage, portable
+        - *Vertical planters*: Maximize space for herbs
 
-        **3. Soil Mix Recipe**:
+        *3. Soil Mix Recipe*:
         - 40% Cocopeat (moisture retention)
         - 30% Regular soil
         - 20% Compost/vermicompost
         - 10% Perlite or sand (drainage)
 
-        **4. Drainage is Critical**:
+        *4. Drainage is Critical*:
         - Ensure pots have 2-3 drainage holes
         - Add 2cm gravel/pebbles at bottom
         - Never let water stagnate
 
-        **5. Start Small**:
+        *5. Start Small*:
         - Begin with 3-5 easy plants (Snake Plant, Mint, Money Plant)
         - Learn watering patterns for 2-3 months
         - Gradually expand your collection
@@ -835,30 +835,30 @@ elif st.session_state.current_page == "About":
         st.markdown("""
         #### Watering & Maintenance Guide
 
-        **Watering Schedule** (India-specific):
+        *Watering Schedule* (India-specific):
 
         | Season | Frequency | Best Time |
         |--------|-----------|-----------|
-        | **Summer** (Mar-Jun) | Daily or twice daily | Early morning (6-8 AM) |
-        | **Monsoon** (Jul-Sep) | 2-3 times/week | Check soil first |
-        | **Winter** (Nov-Feb) | 3-4 times/week | Mid-morning (10 AM) |
+        | *Summer* (Mar-Jun) | Daily or twice daily | Early morning (6-8 AM) |
+        | *Monsoon* (Jul-Sep) | 2-3 times/week | Check soil first |
+        | *Winter* (Nov-Feb) | 3-4 times/week | Mid-morning (10 AM) |
 
-        **The Finger Test**:
+        *The Finger Test*:
         - Insert finger 2cm into soil
         - If dry → water thoroughly
         - If moist → skip watering
 
-        **Fertilizing**:
+        *Fertilizing*:
         - Use organic compost every 3-4 weeks
         - Liquid fertilizer (diluted) every 2 weeks during growing season
         - Avoid over-fertilizing (causes salt buildup)
 
-        **Pruning**:
+        *Pruning*:
         - Remove dead/yellow leaves weekly
         - Trim overgrown stems to encourage bushiness
         - Harvest herbs regularly to promote growth
 
-        **Common Mistakes**:
+        *Common Mistakes*:
         ❌ Overwatering (leads to root rot)  
         ❌ Using garden soil directly (too heavy, poor drainage)  
         ❌ Ignoring drainage holes  
@@ -869,22 +869,22 @@ elif st.session_state.current_page == "About":
         st.markdown("""
         #### Optimizing Sunlight
 
-        **Understanding Your Balcony**:
+        *Understanding Your Balcony*:
 
         | Direction | Sunlight | Best Plants |
         |-----------|----------|-------------|
-        | **East** | Morning sun (4-6 hrs) | Herbs, Tulsi, Vegetables |
-        | **West** | Afternoon sun (4-6 hrs) | Succulents, Aloe, Cacti |
-        | **South** | Full sun (8+ hrs) | Tomatoes, Chillies, Sunflowers |
-        | **North** | Indirect/low light | Snake Plant, Money Plant, Ferns |
+        | *East* | Morning sun (4-6 hrs) | Herbs, Tulsi, Vegetables |
+        | *West* | Afternoon sun (4-6 hrs) | Succulents, Aloe, Cacti |
+        | *South* | Full sun (8+ hrs) | Tomatoes, Chillies, Sunflowers |
+        | *North* | Indirect/low light | Snake Plant, Money Plant, Ferns |
 
-        **Solutions for Low Light**:
+        *Solutions for Low Light*:
         - Use reflective surfaces (white walls, mirrors)
         - Rotate plants weekly for even exposure
         - Choose shade-tolerant species
         - Consider grow lights (LED, 6-8 hours/day)
 
-        **Too Much Sun?**:
+        *Too Much Sun?*:
         - Use shade cloth (30-50% density)
         - Create temporary shade with curtains
         - Move sensitive plants during peak hours (12-3 PM)
@@ -895,18 +895,18 @@ elif st.session_state.current_page == "About":
         st.markdown("""
         #### Natural Pest Control
 
-        **Common Pests**:
-        - **Aphids**: Spray with neem oil + water (1:10)
-        - **Mealybugs**: Wipe with rubbing alcohol on cotton
-        - **Fungus Gnats**: Reduce watering, add sand layer on top
-        - **Spider Mites**: Increase humidity, spray with water
+        *Common Pests*:
+        - *Aphids*: Spray with neem oil + water (1:10)
+        - *Mealybugs*: Wipe with rubbing alcohol on cotton
+        - *Fungus Gnats*: Reduce watering, add sand layer on top
+        - *Spider Mites*: Increase humidity, spray with water
 
-        **Organic Solutions**:
-        1. **Neem Oil Spray**: 10ml neem oil + 1L water + 2 drops soap
-        2. **Garlic Spray**: Crush 10 cloves + 1L water, strain, spray
-        3. **Cinnamon Powder**: Sprinkle on soil to prevent fungal growth
+        *Organic Solutions*:
+        1. *Neem Oil Spray*: 10ml neem oil + 1L water + 2 drops soap
+        2. *Garlic Spray*: Crush 10 cloves + 1L water, strain, spray
+        3. *Cinnamon Powder*: Sprinkle on soil to prevent fungal growth
 
-        **Prevention**:
+        *Prevention*:
         - Inspect plants weekly
         - Quarantine new plants for 2 weeks
         - Keep area clean (remove dead leaves)
@@ -924,14 +924,14 @@ elif st.session_state.current_page == "About":
 
         Planting trees and balcony gardens isn't just about filling up empty spaces—it's about making a difference:
 
-        **Environmental**:
-        - 🌫️ Reduce air pollution by filtering PM2.5 and toxins
-        - 🌡️ Combat urban heat islands (trees can cool areas by 2-8°C)
+        *Environmental*:
+        - 🌫 Reduce air pollution by filtering PM2.5 and toxins
+        - 🌡 Combat urban heat islands (trees can cool areas by 2-8°C)
         - 💧 Improve water retention and reduce flooding
         - 🦋 Enhance biodiversity by supporting pollinators
         - 🌍 Sequester carbon (a mature tree absorbs 22 kg CO₂/year)
 
-        **Health**:
+        *Health*:
         - 🫁 Improve respiratory health (WHO: trees reduce asthma by 25%)
         - 🧠 Boost mental wellbeing (greenery reduces stress by 30%)
         - 💪 Encourage outdoor activity and community engagement
@@ -942,17 +942,17 @@ elif st.session_state.current_page == "About":
         st.markdown("""
         #### Educational Impact
 
-        **For Children**:
+        *For Children*:
         - Hands-on science learning (photosynthesis, life cycles)
         - Responsibility and patience development
         - Connection to nature in urban settings
 
-        **For Communities**:
+        *For Communities*:
         - Shared knowledge through local gardening groups
         - Seed/plant exchanges reducing costs
         - Intergenerational bonding activities
 
-        **Economic**:
+        *Economic*:
         - 💰 Reduce grocery costs (herbs save ₹500-1000/month)
         - 🏠 Increase property value (greenery adds 10-15%)
         - ⚡ Lower energy bills (plants reduce AC usage)
@@ -963,22 +963,22 @@ elif st.session_state.current_page == "About":
     st.markdown("""
     This project is backed by scientific research and real-world data:
 
-    **Climate & Environmental**:
+    *Climate & Environmental*:
     - 🌍 NASA Climate Change Data – Research on deforestation and afforestation impact
     - 📊 IPCC Climate Reports (2023) – Studies on afforestation as a climate solution
     - 🌳 FAO Report (2023) – Global forest mortality and plantation strategies
 
-    **Urban Forestry & Air Quality**:
-    - 🏙️ World Health Organization (WHO) – Urban forestry and pollution reduction
+    *Urban Forestry & Air Quality*:
+    - 🏙 World Health Organization (WHO) – Urban forestry and pollution reduction
     - 🫁 Lancet Planetary Health (2022) – Air pollution and mortality in India
     - 🌿 The Nature Conservancy – Urban tree benefits calculator
 
-    **Balcony & Indoor Gardening**:
+    *Balcony & Indoor Gardening*:
     - 🪴 NASA Clean Air Study – Air-purifying plants research
     - 🏡 Journal of Environmental Psychology – Mental health benefits of indoor plants
     - 🌱 Royal Horticultural Society (RHS) – Container gardening best practices
 
-    **India-Specific Data**:
+    *India-Specific Data*:
     - 📈 Census of India 2021 – Urbanization statistics
     - 🌆 Ministry of Environment (MoEFCC) – Green India Mission data
     - 🌳 Indian State of Forest Report (FSR 2021) – Tree cover statistics
@@ -989,20 +989,20 @@ elif st.session_state.current_page == "About":
     st.markdown("""
     Whether you have acres of land or just a small balcony, every plant makes a difference. 
 
-    **Start Your Journey**:
-    1. 🏠 Go to **Home** and select your space type (Outdoor/Balcony)
+    *Start Your Journey*:
+    1. 🏠 Go to *Home* and select your space type (Outdoor/Balcony)
     2. 📍 Enter your location for personalized recommendations
     3. 🌱 Choose plants that match your space and goals
     4. 📊 Track your impact and watch your garden grow!
 
-    **Join the Movement**:
-    - Share your progress in the **Community** tab
+    *Join the Movement*:
+    - Share your progress in the *Community* tab
     - Inspire others with photos of your plants
     - Learn from fellow gardeners' experiences
 
     ---
 
-    💚 *"The best time to plant a tree was 20 years ago. The second best time is now."*  
+    💚 "The best time to plant a tree was 20 years ago. The second best time is now."  
     – Chinese Proverb
     """)
 
