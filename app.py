@@ -1579,4 +1579,3 @@ elif st.session_state.current_page == "About":
             navigate_to("Community")
 
 st.markdown("---")
-st.caption("💡 Get free OpenWeatherMap API key at https://openweathermap.org/api")
