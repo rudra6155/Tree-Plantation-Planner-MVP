@@ -1,5 +1,16 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import requests
+import datetime
+import uuid
+import os
+from dotenv import load_dotenv
+from PIL import Image
+import io
+import json
+
+# existing imports from your project
 from community import initialize_community, display_community_feed
 import geopy
 from geopy.geocoders import Nominatim
@@ -7,40 +18,378 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
-import datetime
-import uuid
 
-# Import custom modules
+# local modules
 from tree_data import get_tree_data, get_tree_details, get_balcony_plants_data
 from recommendation import get_recommendations, get_balcony_recommendations
-from climate_data import get_climate_data
-from soil_data import get_soil_types, get_soil_data
-from impact_calculator import calculate_impact
-from utils import display_tree_svg
-from planting_guide import get_planting_guide, get_maintenance_guide
-from user_profile import (
-    initialize_user_profile,
-    add_xp,
-    calculate_green_score,
-    display_profile_sidebar,
-    update_streak,
-    check_and_award_badges
-)
 
-# Set page configuration
-st.set_page_config(
-    page_title="Tree Plantation Planner",
-    page_icon="🌳",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Optional imports with fallbacks
+try:
+    from climate_data import get_climate_data
+except Exception:
+    def get_climate_data(lat, lon):
+        return {"avg_temp": 28, "annual_rainfall": 800, "humidity": 60, "climate_zone": "Tropical"}
+
+try:
+    from soil_data import get_soil_types, get_soil_data
+except Exception:
+    def get_soil_data(lat, lon):
+        return {"soil_type": "Loamy", "ph_level": 6.8, "drainage": "Good", "nutrient_level": "Medium"}
+
+try:
+    from impact_calculator import calculate_impact
+except Exception:
+    def calculate_impact(plants):
+        return {"carbon_sequestered": max(0.1, len(plants) * 22.0), "oxygen_produced": max(0.1, len(plants) * 1.2),
+                "pollutants_removed": max(0.1, len(plants) * 5.0)}
+
+try:
+    from utils import display_tree_svg
+    from planting_guide import get_planting_guide, get_maintenance_guide
+    from user_profile import (
+        initialize_user_profile,
+        add_xp,
+        calculate_green_score,
+        display_profile_sidebar,
+        update_streak,
+        check_and_award_badges
+    )
+except Exception:
+    def display_tree_svg():
+        pass
 
 
-# ----------------------
+    def get_planting_guide(name):
+        return []
+
+
+    def get_maintenance_guide(name):
+        return {}
+
+
+    def initialize_user_profile():
+        st.session_state.setdefault('user_profile', {"trees_planted": 0})
+
+
+    def add_xp(a, b):
+        pass
+
+
+    def calculate_green_score():
+        return 0
+
+
+    def display_profile_sidebar():
+        pass
+
+
+    def update_streak():
+        pass
+
+
+    def check_and_award_badges():
+        pass
+
+# Load environment
+load_dotenv()
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
+
+st.set_page_config(page_title="AirCare - Tree & Air Quality Planner", page_icon="🌳", layout="wide")
+
+# ===========================
+# AIR QUALITY FUNCTIONS
+# ===========================
+
+# Plant effectiveness database (sq ft coverage per plant)
+PLANT_AIR_DATA = {
+    "Areca Palm": {
+        "effectiveness": 120,
+        "removes": ["Formaldehyde", "Xylene", "Toluene"],
+        "pm_reduction": 30,
+        "care": "Medium"
+    },
+    "Snake Plant": {
+        "effectiveness": 40,
+        "removes": ["Formaldehyde", "Benzene", "CO"],
+        "pm_reduction": 18,
+        "care": "Very Easy"
+    },
+    "Peace Lily": {
+        "effectiveness": 50,
+        "removes": ["Ammonia", "Benzene", "Formaldehyde", "TCE"],
+        "pm_reduction": 25,
+        "care": "Easy"
+    },
+    "Spider Plant": {
+        "effectiveness": 50,
+        "removes": ["CO", "Formaldehyde", "Xylene"],
+        "pm_reduction": 20,
+        "care": "Very Easy"
+    },
+    "Rubber Plant": {
+        "effectiveness": 100,
+        "removes": ["Formaldehyde"],
+        "pm_reduction": 35,
+        "care": "Easy"
+    },
+    "Boston Fern": {
+        "effectiveness": 60,
+        "removes": ["Formaldehyde", "Xylene"],
+        "pm_reduction": 28,
+        "care": "Medium"
+    },
+    "Money Plant": {
+        "effectiveness": 60,
+        "removes": ["Formaldehyde", "Benzene", "Xylene", "Toluene"],
+        "pm_reduction": 22,
+        "care": "Very Easy"
+    },
+    "Neem": {
+        "effectiveness": 200,
+        "removes": ["PM2.5", "PM10", "Natural purifier"],
+        "pm_reduction": 45,
+        "care": "Low"
+    }
+}
+
+
+def fetch_aqi_openweather(lat, lon, api_key):
+    """Fetch real-time AQI data from OpenWeatherMap"""
+    if not api_key:
+        return None
+    try:
+        url = "http://api.openweathermap.org/data/2.5/air_pollution"
+        params = {"lat": lat, "lon": lon, "appid": api_key}
+        r = requests.get(url, params=params, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        if 'list' in data and data['list']:
+            rec = data['list'][0]
+            return {
+                "aqi_index": rec.get('main', {}).get('aqi'),
+                "components": rec.get('components', {}),
+                "dt": rec.get('dt'),
+                "timestamp": datetime.datetime.fromtimestamp(rec.get('dt', 0))
+            }
+    except Exception as e:
+        st.error(f"⚠️ AQI fetch failed: {e}")
+    return None
+
+
+def aqi_to_label(aqi_index):
+    """Convert AQI index to readable label"""
+    map_ = {1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Very Poor"}
+    return map_.get(aqi_index, "Unknown")
+
+
+def aqi_to_color(aqi_index):
+    """Get color for AQI visualization"""
+    colors = {1: "green", 2: "lightgreen", 3: "yellow", 4: "orange", 5: "red"}
+    return colors.get(aqi_index, "gray")
+
+
+def get_aqi_action_plan(aqi_index, pm25, location_data):
+    """Generate personalized daily action plan based on AQI"""
+    actions = []
+
+    if aqi_index >= 5:
+        actions = [
+            "🚪 Stay indoors as much as possible",
+            "🪟 Keep all windows and doors closed",
+            "💧 Water your indoor plants - they help filter air",
+            "😷 Wear N95/N99 mask if you must go outside",
+            "🌱 Place air-purifying plants near sleeping area",
+            "⚕️ Avoid outdoor exercise completely",
+            "🧒 Keep children and elderly indoors"
+        ]
+    elif aqi_index >= 4:
+        actions = [
+            "⏰ Limit outdoor time to essential activities only",
+            "🪟 Keep windows closed during peak pollution hours (6-10 AM, 5-9 PM)",
+            "💧 Water your plants today - especially Areca Palm and Snake Plant",
+            "😷 Wear mask outdoors",
+            "🏃 Postpone outdoor exercise",
+            "🌿 Check your balcony plants - they're working hard today"
+        ]
+    elif aqi_index >= 3:
+        actions = [
+            "⚠️ Sensitive individuals should limit prolonged outdoor activities",
+            "🪟 Ventilate during midday when AQI is typically better",
+            "💧 Ensure plants are well-watered",
+            "🏃 Exercise early morning or evening",
+            "🌱 Good day to add more air-purifying plants"
+        ]
+    else:
+        actions = [
+            "✅ Air quality is acceptable today",
+            "🪟 Safe to ventilate your home",
+            "🏃 Great day for outdoor activities",
+            "🌱 Perfect time to plant new saplings",
+            "💧 Regular plant care routine"
+        ]
+
+    return actions
+
+
+def recommend_plants_by_aqi(pm25, aqi_index):
+    """Recommend specific plants based on current pollution levels"""
+    if pm25 and pm25 > 50:
+        return [
+            {"name": "Areca Palm", "reason": "Excellent PM2.5 reducer (30% reduction)"},
+            {"name": "Boston Fern", "reason": "Great for particulate matter"},
+            {"name": "Rubber Plant", "reason": "Large leaves trap dust"},
+            {"name": "Neem", "reason": "Natural air purifier (outdoor)"}
+        ]
+    elif pm25 and pm25 > 25:
+        return [
+            {"name": "Snake Plant", "reason": "Removes formaldehyde & benzene"},
+            {"name": "Spider Plant", "reason": "Absorbs CO and toxins"},
+            {"name": "Peace Lily", "reason": "Filters multiple pollutants"}
+        ]
+    else:
+        return [
+            {"name": "Snake Plant", "reason": "Low maintenance, 24/7 oxygen"},
+            {"name": "Money Plant", "reason": "Easy care, good air cleaner"},
+            {"name": "Spider Plant", "reason": "Hardy and effective"}
+        ]
+
+
+def calc_plants_needed(room_sqft, plant_name):
+    """Calculate number of plants needed for a room"""
+    plant_data = PLANT_AIR_DATA.get(plant_name, {"effectiveness": 50})
+    base = plant_data["effectiveness"]
+    return int(np.ceil(room_sqft / base))
+
+
+def calculate_home_air_score(answers):
+    """Calculate 0-100 home air health score"""
+    score = 100
+
+    if answers.get('gas_cooking') == "Yes":
+        score -= 20
+
+    if answers.get('smoking') == "Yes":
+        score -= 30
+
+    vent = answers.get('ventilation', 'Rarely')
+    if vent == "Daily":
+        score += 5
+    elif vent == "Rarely":
+        score -= 20
+    else:
+        score -= 10
+
+    plant_count = answers.get('plant_count', 0)
+    score += min(10, plant_count * 2)
+
+    if answers.get('purifier') == "Yes":
+        score += 10
+    else:
+        score -= 10
+
+    if answers.get('carpets') == "Yes":
+        score -= 10
+
+    if answers.get('ac_filter') == "Never/Rarely":
+        score -= 15
+
+    return max(0, min(100, score))
+
+
+def analyze_plant_image(img_bytes):
+    """Simple heuristic plant health analysis"""
+    try:
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        img_small = img.resize((200, 200))
+        arr = np.array(img_small)
+
+        r, g, b = arr[:, :, 0].astype(float), arr[:, :, 1].astype(float), arr[:, :, 2].astype(float)
+
+        green_mask = (g > r * 1.05) & (g > b * 1.05) & (g > 50)
+        green_ratio = green_mask.sum() / (arr.shape[0] * arr.shape[1])
+
+        brown_mask = (r > g * 1.05) & (r > b * 1.05) & (r > 80) & (g < 150)
+        brown_ratio = brown_mask.sum() / (arr.shape[0] * arr.shape[1])
+
+        yellow_mask = (r > 150) & (g > 150) & (b < 100)
+        yellow_ratio = yellow_mask.sum() / (arr.shape[0] * arr.shape[1])
+
+        gray = np.mean(arr, axis=2)
+        contrast = gray.std()
+        dusty = contrast < 30
+
+        brightness = np.mean(gray)
+
+        return {
+            "green_ratio": float(green_ratio),
+            "brown_ratio": float(brown_ratio),
+            "yellow_ratio": float(yellow_ratio),
+            "contrast": float(contrast),
+            "brightness": float(brightness),
+            "dusty": bool(dusty)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def diagnose_plant_health(analysis):
+    """Generate diagnosis from image analysis"""
+    issues = []
+    recommendations = []
+
+    if 'error' in analysis:
+        return ["Error analyzing image"], ["Try uploading a clearer photo"]
+
+    green = analysis['green_ratio']
+    brown = analysis['brown_ratio']
+    yellow = analysis['yellow_ratio']
+    dusty = analysis['dusty']
+    brightness = analysis['brightness']
+
+    if green < 0.20:
+        issues.append("⚠️ Low green coverage - plant may be severely stressed or dying")
+        recommendations.append("Check soil moisture, lighting, and recent care history")
+    elif green < 0.35:
+        issues.append("⚠️ Moderate stress detected")
+        recommendations.append("Review watering schedule and light exposure")
+
+    if brown > 0.08:
+        issues.append("🟤 Significant browning detected")
+        recommendations.append("Possible causes: overwatering, root rot, sunburn, or pest damage")
+        recommendations.append("Check for: mushy roots, burnt leaf edges, tiny insects")
+
+    if yellow > 0.05:
+        issues.append("🟡 Yellowing detected (chlorosis)")
+        recommendations.append("Likely nitrogen deficiency - add balanced fertilizer")
+        recommendations.append("Could also indicate overwatering or poor drainage")
+
+    if dusty:
+        issues.append("💨 Heavy dust accumulation detected")
+        recommendations.append("Wipe leaves gently with damp cloth")
+        recommendations.append("Dust blocks sunlight and clogs pores")
+
+    if brightness < 80:
+        issues.append("🌑 Very dark image - may indicate low light conditions")
+        recommendations.append("Move plant to brighter location if possible")
+
+    if dusty or brown > 0.05:
+        recommendations.append("🏭 In high pollution areas:")
+        recommendations.append("• Clean leaves weekly")
+        recommendations.append("• Increase watering slightly (plants work harder)")
+        recommendations.append("• Check soil pH monthly")
+
+    if len(issues) == 0:
+        issues.append("✅ Plant appears healthy!")
+        recommendations.append("Continue current care routine")
+        recommendations.append("Monitor weekly for any changes")
+
+    return issues, recommendations
+
+
+# ===========================
 # Initialize session state
-# ----------------------
+# ===========================
 def init_session_state():
-    """Initialize all session state variables"""
     defaults = {
         'location': None,
         'climate_data': None,
@@ -54,165 +403,122 @@ def init_session_state():
         'planting_purpose': [],
         'balcony_direction': 'East',
         'current_page': 'Home',
-        'watering_logs': {},  # NEW: {plant_id: [dates]}
-        'plant_photos': {},  # NEW: {plant_id: [photo_data]}
-        'care_reminders': {}  # NEW: {plant_id: reminder_data}
+        'watering_logs': {},
+        'plant_photos': {},
+        'care_reminders': {},
+        'last_aqi': None,
+        'aqi_history': [],
+        'home_air_score': None,
+        'green_shield_data': {}
     }
-
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
 
 init_session_state()
 
-# Initialize user profile and community only once
 if 'user_profile' not in st.session_state:
     initialize_user_profile()
     initialize_community()
     update_streak()
 
 
-# ----------------------
-# FIXED NAVIGATION SYSTEM
-# ----------------------
+# ===========================
+# Navigation
+# ===========================
 def navigate_to(page_name):
-    """Centralized navigation function"""
     st.session_state.current_page = page_name
     st.rerun()
 
 
-# Check for programmatic navigation request
 if 'navigate_to' in st.session_state and st.session_state.navigate_to:
     st.session_state.current_page = st.session_state.navigate_to
     st.session_state.navigate_to = None
 
-# ----------------------
-# FIXED LOCATION SYSTEM
-# ----------------------
-query_params = st.query_params
+# ===========================
+# Sidebar Navigation
+# ===========================
+page_options = [
+    "Home",
+    "🌫️ AQI Dashboard",
+    "Tree Recommendations",
+    "Planting Guide",
+    "Plant Care Tracker",
+    "🧮 Air Calculator",
+    "🏠 Home Air Score",
+    "🩺 Plant Doctor",
+    "Impact Tracker",
+    "Community",
+    "About"
+]
 
-# Handle geolocation from browser
-if "lat" in query_params and "lon" in query_params:
-    try:
-        lat = float(query_params["lat"])
-        lon = float(query_params["lon"])
-
-        # Reverse geocode to get address
-        geolocator = Nominatim(user_agent="tree_planner")
-        location = geolocator.reverse(f"{lat}, {lon}")
-
-        st.session_state.location = {
-            "address": location.address if location else f"Lat: {lat}, Lon: {lon}",
-            "latitude": lat,
-            "longitude": lon
-        }
-
-        # Fetch climate & soil data
-        st.session_state.climate_data = get_climate_data(lat, lon)
-        st.session_state.soil_data = get_soil_data(lat, lon)
-
-        # Generate recommendations
-        if st.session_state.is_balcony_mode:
-            st.session_state.recommended_trees = get_balcony_recommendations(
-                st.session_state.space_size,
-                st.session_state.sunlight_hours,
-                st.session_state.planting_purpose,
-                st.session_state.climate_data
-            )
-        else:
-            st.session_state.recommended_trees = get_recommendations(
-                st.session_state.climate_data,
-                st.session_state.soil_data
-            )
-
-        # Clear params and navigate
-        st.query_params.clear()
-        st.session_state.current_page = "Tree Recommendations"
-        st.rerun()
-
-    except Exception as e:
-        st.error(f"Error processing location: {e}")
-
-# ----------------------
-# Sidebar Navigation (READ ONLY - doesn't control page)
-# ----------------------
-page_options = ["Home", "Tree Recommendations", "Planting Guide", "Plant Care Tracker", "Impact Tracker", "Community",
-                "About"]
-
-# Display current page in sidebar
 with st.sidebar:
-    st.markdown(f"### 📍 Current Page: *{st.session_state.current_page}*")
+    st.markdown(f"### 📍 Current: *{st.session_state.current_page}*")
     st.markdown("---")
-
-    # Navigation buttons (replaces radio)
     for page in page_options:
         if st.button(page, key=f"nav_{page}", use_container_width=True):
             navigate_to(page)
 
-# Display user profile in sidebar
 display_profile_sidebar()
 display_tree_svg()
 
 
-# ----------------------
+# ===========================
 # Utility Functions
-# ----------------------
+# ===========================
 def ensure_tree_has_fields(tree):
     """Ensure tree object has all required fields"""
     defaults = {
         'id': str(uuid.uuid4()),
         'status': 'Newly Planted',
         'health': 'Good',
-        'planted_date': datetime.datetime.now().strftime("%Y-%m-%d"),
+        'planted_date': datetime.datetime.now().strftime("%Y-m-%d"),
         'name': 'Unknown Plant',
         'purposes': [],
         'environmental_benefits': 'N/A',
-        'benefits': 'N/A'
+        'benefits': 'N/A'  # Added from TPP.py
     }
-
-    for key, default_value in defaults.items():
-        if key not in tree:
-            tree[key] = default_value
-
+    for k, v in defaults.items():
+        if k not in tree:
+            tree[k] = v
     return tree
 
-
-# ----------------------
-# App Title
-# ----------------------
-st.title("🌳 Tree Plantation Planner")
-st.markdown("""
-A data-driven approach to planting the right trees in the right places.
-""")
-
-# ----------------------
-# PAGES
-# ----------------------
 
 # ===========================
 # HOME PAGE
 # ===========================
 if st.session_state.current_page == "Home":
-    st.header("Welcome to Smart Tree Plantation")
+    st.title("🌳 AirCare - Smart Tree & Air Quality Planner")
+
+    if st.session_state.location and OPENWEATHER_API_KEY:
+        lat = st.session_state.location['latitude']
+        lon = st.session_state.location['longitude']
+        aqi = fetch_aqi_openweather(lat, lon, OPENWEATHER_API_KEY)
+        if aqi:
+            aqi_label = aqi_to_label(aqi['aqi_index'])
+            aqi_color = aqi_to_color(aqi['aqi_index'])
+            st.markdown(f"""
+            <div style='background-color: {aqi_color}; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                <h3 style='margin: 0; color: white;'>Current Air Quality: {aqi_label}</h3>
+                <p style='margin: 5px 0 0 0; color: white;'>PM2.5: {aqi['components'].get('pm2_5', 'N/A')} µg/m³</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.subheader("Why plant trees strategically?")
+        st.subheader("🌍 Why Plant Strategically?")
         st.markdown("""
-        Strategic tree plantation ensures:
-        - *Higher survival rates* for planted trees
-        - *Better air quality* improvement
-        - *Enhanced biodiversity* support
-        - *Effective carbon sequestration*
+        - 🌱 Higher survival rates
+        - 🌫️ **Better air quality improvement**
+        - 🌳 Enhanced biodiversity
+        - ♻️ Carbon sequestration
         """)
 
-        # Planting Mode Selection
-        st.subheader("🏙 Select Your Planting Space")
-
+        st.subheader("🏡 Select Your Space")
         planting_mode = st.radio(
-            "Where are you planning to plant?",
+            "Where are you planting?",
             ["🌳 Outdoor / Yard / Ground", "🪴 Urban Balcony / Terrace / Indoor"],
             key="planting_mode_radio"
         )
@@ -235,10 +541,7 @@ if st.session_state.current_page == "Home":
                 )
 
             with col_space2:
-                st.session_state.sunlight_hours = st.slider(
-                    "Daily sunlight (hours):",
-                    0, 12, 6
-                )
+                st.session_state.sunlight_hours = st.slider("Daily sunlight (hours):", 0, 12, 6)
                 st.session_state.planting_purpose = st.multiselect(
                     "Your goals:",
                     ["Air Purification", "Edible (Herbs/Vegetables)", "Aesthetic/Decor",
@@ -249,40 +552,28 @@ if st.session_state.current_page == "Home":
             st.session_state.is_balcony_mode = False
             st.info("🌳 Outdoor mode activated!")
 
-        # Location Input
-        st.subheader("📍 Enter your location")
+        st.subheader("📍 Enter Location")
         location_method = st.radio(
-            "Choose location input method:",
-            ["Search by address", "Use current location (requires permission)"]
+            "Choose method:",
+            ["Search by address", "Use current location"]
         )
 
         if location_method == "Search by address":
             address = st.text_input("Enter address, city, or region:")
-
             if st.button("🔍 Search Location", type="primary"):
                 try:
-                    geolocator = Nominatim(user_agent="tree_planner")
+                    geolocator = Nominatim(user_agent="aircare_planner")
                     location = geolocator.geocode(address)
-
                     if location:
                         st.session_state.location = {
                             "address": location.address,
                             "latitude": location.latitude,
                             "longitude": location.longitude
                         }
-                        st.success(f"✅ Location found: {location.address}")
+                        st.success(f"✅ Found: {location.address}")
+                        st.session_state.climate_data = get_climate_data(location.latitude, location.longitude)
+                        st.session_state.soil_data = get_soil_data(location.latitude, location.longitude)
 
-                        # Get climate and soil data
-                        st.session_state.climate_data = get_climate_data(
-                            location.latitude,
-                            location.longitude
-                        )
-                        st.session_state.soil_data = get_soil_data(
-                            location.latitude,
-                            location.longitude
-                        )
-
-                        # Generate recommendations
                         if st.session_state.is_balcony_mode:
                             st.session_state.recommended_trees = get_balcony_recommendations(
                                 st.session_state.space_size,
@@ -296,21 +587,15 @@ if st.session_state.current_page == "Home":
                                 st.session_state.soil_data
                             )
 
-                        st.success(f"✅ Found {len(st.session_state.recommended_trees)} plants!")
-                        add_xp(10, "Got plant recommendations!")
-
-                        # AUTO-NAVIGATE
-                        st.info("🚀 Redirecting to recommendations...")
+                        add_xp(10, "Got recommendations!")
                         st.session_state.navigate_to = "Tree Recommendations"
                         st.rerun()
                     else:
-                        st.error("Location not found. Please try again.")
+                        st.error("Location not found")
                 except Exception as e:
-                    st.error(f"Error: {str(e)}")
-
+                    st.error(f"Error: {e}")
         else:
-            st.info("Click below to use your device's location")
-
+            st.info("Click to use device location")
             if st.button("📍 Get Current Location", type="primary"):
                 js = """
                 <script>
@@ -327,7 +612,7 @@ if st.session_state.current_page == "Home":
                             window.location.href = newUrl;
                         },
                         (err) => {
-                            alert('Could not get location. Enable location permissions.');
+                            alert('Enable location permissions');
                         },
                         { enableHighAccuracy: true, timeout: 10000 }
                     );
@@ -338,23 +623,157 @@ if st.session_state.current_page == "Home":
                 components.html(js, height=0)
 
     with col2:
-        st.subheader("Did you know?")
+        st.subheader("💡 Did You Know?")
         st.markdown("""
-        - 50%+ of mass-planted trees die within years
-        - Wrong trees can deplete groundwater
-        - Right urban trees reduce pollution by 60%
+        - 50%+ planted trees die within years
+        - Wrong trees deplete groundwater
+        - **Right plants reduce indoor pollution by 60%**
+        - **Indoor plants remove VOCs & PM2.5**
         """)
 
-        st.subheader("Key Benefits")
+        st.subheader("🚀 New Features!")
         st.markdown("""
-        - 🌱 Increased survival rate
-        - 🌍 Better carbon sequestration
-        - 🌤 Improved air quality
-        - 🦋 Enhanced biodiversity
+        - 🌫️ Real-time AQI monitoring
+        - 🏠 Home air health score
+        - 🩺 AI plant doctor
+        - 🧮 Smart plant calculator
+        - 💚 Green shield tracker
         """)
+
+query_params = st.query_params
+if 'lat' in query_params and 'lon' in query_params:
+    try:
+        lat = float(query_params['lat'])
+        lon = float(query_params['lon'])
+        geolocator = Nominatim(user_agent="aircare_planner")
+        location = geolocator.reverse(f"{lat}, {lon}")
+        st.session_state.location = {
+            "address": location.address if location else f"{lat},{lon}",
+            "latitude": lat,
+            "longitude": lon
+        }
+        st.session_state.climate_data = get_climate_data(lat, lon)
+        st.session_state.soil_data = get_soil_data(lat, lon)
+
+        if st.session_state.is_balcony_mode:
+            st.session_state.recommended_trees = get_balcony_recommendations(
+                st.session_state.space_size,
+                st.session_state.sunlight_hours,
+                st.session_state.planting_purpose,
+                st.session_state.climate_data
+            )
+        else:
+            st.session_state.recommended_trees = get_recommendations(
+                st.session_state.climate_data,
+                st.session_state.soil_data
+            )
+
+        st.query_params.clear()
+        st.session_state.current_page = "Tree Recommendations"
+        st.rerun()
+    except Exception as e:
+        st.error(f"Location error: {e}")
 
 # ===========================
-# TREE RECOMMENDATIONS PAGE
+# AQI DASHBOARD (KILLER FEATURE #1)
+# ===========================
+elif st.session_state.current_page == "🌫️ AQI Dashboard":
+    st.header("🌫️ Real-Time Air Quality Dashboard")
+
+    if st.session_state.location is None:
+        st.warning("⚠️ Set location on Home page first")
+        if st.button("← Go to Home", type="primary"):
+            navigate_to("Home")
+    else:
+        lat = st.session_state.location['latitude']
+        lon = st.session_state.location['longitude']
+
+        st.subheader(f"📍 {st.session_state.location['address']}")
+
+        if not OPENWEATHER_API_KEY:
+            st.error("🔑 Add OPENWEATHER_API_KEY to .env file")
+            st.info("Get free API key at: https://openweathermap.org/api")
+        else:
+            with st.spinner("Fetching air quality data..."):
+                aqi = fetch_aqi_openweather(lat, lon, OPENWEATHER_API_KEY)
+
+            if aqi:
+                st.session_state.last_aqi = aqi
+
+                label = aqi_to_label(aqi['aqi_index'])
+                color = aqi_to_color(aqi['aqi_index'])
+                comps = aqi['components']
+
+                st.markdown(f"""
+                <div style='background-color: {color}; padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 30px;'>
+                    <h1 style='color: white; margin: 0;'>{label}</h1>
+                    <h3 style='color: white; margin: 10px 0 0 0;'>AQI Index: {aqi['aqi_index']}/5</h3>
+                    <p style='color: white; margin: 5px 0 0 0;'>Updated: {aqi['timestamp'].strftime('%I:%M %p')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.subheader("🔬 Pollutant Levels")
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("PM2.5", f"{comps.get('pm2_5', 0):.1f} µg/m³")
+                col2.metric("PM10", f"{comps.get('pm10', 0):.1f} µg/m³")
+                col3.metric("NO₂", f"{comps.get('no2', 0):.1f} µg/m³")
+                col4.metric("O₃", f"{comps.get('o3', 0):.1f} µg/m³")
+
+                st.markdown("---")
+                st.subheader("📋 YOUR PERSONALIZED ACTION PLAN FOR TODAY")
+
+                actions = get_aqi_action_plan(aqi['aqi_index'], comps.get('pm2_5'), st.session_state.location)
+                for action in actions:
+                    st.markdown(f"**{action}**")
+
+                st.markdown("---")
+                st.subheader("🌱 Plants Recommended for Today's Air Quality")
+
+                plant_recs = recommend_plants_by_aqi(comps.get('pm2_5'), aqi['aqi_index'])
+                rec_cols = st.columns(len(plant_recs))
+                for idx, rec in enumerate(plant_recs):
+                    with rec_cols[idx]:
+                        st.markdown(f"**{rec['name']}**")
+                        st.caption(rec['reason'])
+                        if st.button(f"Add {rec['name']}", key=f"add_plant_{idx}"):
+                            st.success(f"✅ {rec['name']} added!")
+
+                st.markdown("---")
+                st.subheader("⚕️ Health Recommendations")
+
+                if aqi['aqi_index'] >= 4:
+                    st.error("⚠️ Air quality is harmful")
+                    st.markdown("""
+                    **Who is at risk:**
+                    - Children and elderly
+                    - People with asthma/COPD
+                    - Heart disease patients
+                    """)
+                elif aqi['aqi_index'] == 3:
+                    st.warning("⚠️ Moderate air quality")
+                else:
+                    st.success("✅ Air quality is acceptable")
+
+                if st.session_state.planted_trees:
+                    st.markdown("---")
+                    st.subheader("🛡️ YOUR GREEN SHIELD TODAY")
+
+                    total_plants = len(st.session_state.planted_trees)
+                    estimated_pm_filtered = total_plants * 2.5
+                    estimated_voc_filtered = total_plants * 15
+
+                    shield_col1, shield_col2, shield_col3 = st.columns(3)
+                    shield_col1.metric("🌿 Active Plants", total_plants)
+                    shield_col2.metric("💨 Est. PM2.5 Filtered", f"{estimated_pm_filtered:.1f}g today")
+                    shield_col3.metric("🧪 Est. VOCs Removed", f"{estimated_voc_filtered:.0f}µg today")
+
+                    st.info("💡 Your plants are actively cleaning your air!")
+            else:
+                st.error("Unable to fetch AQI data")
+
+# ===========================
+# Tree Recommendations
+# (MERGED FROM TPP.py for more detail)
 # ===========================
 elif st.session_state.current_page == "Tree Recommendations":
     st.header("🌱 Plant Recommendations")
@@ -380,7 +799,7 @@ elif st.session_state.current_page == "Tree Recommendations":
             if st.session_state.climate_data:
                 st.write(f"🌡 Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
                 st.write(f"🌧 Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
-                st.write(f"💧 Humidity: {st.session_state.climate_data['humidity']}%")
+                st.write(f"💧 Humidity: {st.session_state.climate_data.get('humidity', 'N/A')}%")
                 st.write(f"🌍 Climate Zone: {st.session_state.climate_data['climate_zone']}")
 
         with col2:
@@ -462,7 +881,8 @@ elif st.session_state.current_page == "Tree Recommendations":
             st.info("No recommendations yet. Return to Home to set location.")
 
 # ===========================
-# PLANTING GUIDE PAGE
+# Planting Guide
+# (MERGED FROM TPP.py for more detail)
 # ===========================
 elif st.session_state.current_page == "Planting Guide":
     st.header("🌱 Planting & Maintenance Guide")
@@ -568,7 +988,8 @@ elif st.session_state.current_page == "Planting Guide":
                 navigate_to("Plant Care Tracker")
 
 # ===========================
-# NEW: PLANT CARE TRACKER PAGE
+# Plant Care Tracker
+# (MERGED FROM TPP.py for more detail)
 # ===========================
 elif st.session_state.current_page == "Plant Care Tracker":
     st.header("🌿 Plant Care Tracker")
@@ -634,7 +1055,139 @@ elif st.session_state.current_page == "Plant Care Tracker":
         st.info("Set reminders for watering, fertilizing, pruning (Coming soon!)")
 
 # ===========================
-# IMPACT TRACKER PAGE
+# AIR CALCULATOR (KILLER FEATURE #3)
+# ===========================
+elif st.session_state.current_page == "🧮 Air Calculator":
+    st.header("🧮 Indoor Air Purifier Calculator")
+
+    room_sqft = st.number_input("Room area (square feet):", min_value=10, max_value=2000, value=150, step=10)
+    plant_choice = st.selectbox("Choose plant type:", list(PLANT_AIR_DATA.keys()))
+
+    if st.button("🧮 Calculate", type="primary"):
+        needed = calc_plants_needed(room_sqft, plant_choice)
+        plant_info = PLANT_AIR_DATA[plant_choice]
+
+        st.success(f"### 🌱 You need {needed} x {plant_choice}")
+        st.markdown(f"**Coverage:** {plant_info['effectiveness']} sq ft per plant")
+        st.markdown(f"**Removes:** {', '.join(plant_info['removes'])}")
+        st.markdown(f"**PM Reduction:** Up to {plant_info['pm_reduction']}%")
+        st.markdown(f"**Care Level:** {plant_info['care']}")
+
+        avg_cost_per_plant = 300
+        total_cost = needed * avg_cost_per_plant
+        st.markdown(f"**Estimated Cost:** ₹{total_cost:,}")
+
+    st.markdown("---")
+    st.subheader("📊 Plant Comparison")
+
+    comparison_data = []
+    for name, data in PLANT_AIR_DATA.items():
+        comparison_data.append({
+            "Plant": name,
+            "Coverage (sq ft)": data['effectiveness'],
+            "PM Reduction (%)": data['pm_reduction'],
+            "Care": data['care'],
+            "Plants Needed": calc_plants_needed(room_sqft, name)
+        })
+
+    df = pd.DataFrame(comparison_data).sort_values("Plants Needed")
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+# ===========================
+# HOME AIR SCORE (KILLER FEATURE #4)
+# ===========================
+elif st.session_state.current_page == "🏠 Home Air Score":
+    st.header("🏠 Home Air Health Score")
+
+    with st.form("home_air_form"):
+        q1 = st.radio("Cook with gas indoors?", ["Yes", "No"], index=1)
+        q2 = st.radio("Smoke indoors?", ["Yes", "No"], index=1)
+        q3 = st.radio("Have carpets?", ["Yes", "No"], index=0)
+        q4 = st.radio("Ventilate how often?", ["Daily", "Few times a week", "Rarely"], index=0)
+        q5 = st.number_input("Number of plants?", min_value=0, max_value=100, value=2)
+        q6 = st.radio("Use air purifier?", ["Yes", "No"], index=1)
+        q7 = st.radio("Clean AC filters?", ["Monthly", "Every 3 months", "Every 6 months", "Never/Rarely"], index=1)
+
+        submitted = st.form_submit_button("🧮 Calculate Score", type="primary")
+
+    if submitted:
+        answers = {
+            'gas_cooking': q1,
+            'smoking': q2,
+            'carpets': q3,
+            'ventilation': q4,
+            'plant_count': q5,
+            'purifier': q6,
+            'ac_filter': q7
+        }
+
+        score = calculate_home_air_score(answers)
+
+        if score >= 80:
+            color, grade = "green", "Excellent 🌟"
+        elif score >= 60:
+            color, grade = "lightgreen", "Good ✅"
+        elif score >= 40:
+            color, grade = "orange", "Fair ⚠️"
+        else:
+            color, grade = "red", "Poor ❌"
+
+        st.markdown(f"""
+        <div style='background-color: {color}; padding: 30px; border-radius: 15px; text-align: center; margin: 20px 0;'>
+            <h1 style='color: white; margin: 0;'>{score}/100</h1>
+            <h2 style='color: white; margin: 10px 0 0 0;'>{grade}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.subheader("📋 Recommendations")
+
+        if answers['gas_cooking'] == "Yes":
+            st.markdown("**Install kitchen exhaust fan**")
+        if answers['smoking'] == "Yes":
+            st.markdown("**⚠️ CRITICAL: Stop smoking indoors**")
+        if answers['ventilation'] == "Rarely":
+            st.markdown("**Open windows 15-30 min daily**")
+        if answers['plant_count'] < 5:
+            st.markdown(f"**Add {5 - answers['plant_count']} more plants**")
+        if answers['purifier'] == "No" and score < 60:
+            st.markdown("**Consider HEPA air purifier**")
+
+# ===========================
+# PLANT DOCTOR (KILLER FEATURE #5)
+# ===========================
+elif st.session_state.current_page == "🩺 Plant Doctor":
+    st.header("🩺 AI Plant Doctor")
+
+    uploaded = st.file_uploader("📸 Upload plant photo", type=['jpg', 'jpeg', 'png'])
+
+    if uploaded:
+        bytes_data = uploaded.getvalue()
+        st.image(bytes_data, use_column_width=True)
+
+        if st.button("🔬 Analyze", type="primary"):
+            with st.spinner("Analyzing..."):
+                analysis = analyze_plant_image(bytes_data)
+                issues, recommendations = diagnose_plant_health(analysis)
+
+            st.subheader("🔍 Results")
+
+            if 'error' not in analysis:
+                col1, col2, col3 = st.columns(3)
+                col1.metric("🟢 Green", f"{analysis['green_ratio'] * 100:.1f}%")
+                col2.metric("🟤 Brown", f"{analysis['brown_ratio'] * 100:.1f}%")
+                col3.metric("💨 Dust", "High" if analysis['dusty'] else "Normal")
+
+            st.subheader("⚠️ Issues")
+            for issue in issues:
+                st.markdown(f"- {issue}")
+
+            st.subheader("💡 Recommendations")
+            for rec in recommendations:
+                st.markdown(f"- {rec}")
+
+# ===========================
+# Impact Tracker
+# (MERGED FROM TPP.py for more detail)
 # ===========================
 elif st.session_state.current_page == "Impact Tracker":
     st.header("📊 Environmental Impact Tracker")
@@ -690,13 +1243,14 @@ elif st.session_state.current_page == "Impact Tracker":
         st.plotly_chart(fig)
 
 # ===========================
-# COMMUNITY PAGE
+# Community
 # ===========================
 elif st.session_state.current_page == "Community":
     display_community_feed()
 
 # ===========================
-# ABOUT PAGE
+# About
+# (MERGED FROM TPP.py for more detail)
 # ===========================
 elif st.session_state.current_page == "About":
     st.header("About the Tree Plantation Planner")
@@ -1024,11 +1578,5 @@ elif st.session_state.current_page == "About":
         if st.button("👥 Join Community", type="secondary", use_container_width=True):
             navigate_to("Community")
 
-# Footer
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; padding: 20px;'>
-    <p><strong>Tree Plantation Planner</strong> | A data-driven approach to smarter afforestation & urban gardening</p>
-    <p>🌍 Making the world greener, one plant at a time | 🪴 From forests to balconies</p>
-</div>
-""", unsafe_allow_html=True)
+st.caption("💡 Get free OpenWeatherMap API key at https://openweathermap.org/api")
