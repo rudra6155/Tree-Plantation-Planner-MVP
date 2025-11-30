@@ -9,4 +9,5 @@ dependencies = [
     "pandas>=2.2.3",
     "plotly>=6.0.1",
     "streamlit>=1.44.1",
+    "python-dotenv>=1.0.0",  # <--- THIS IS THE MISSING LINE
 ]
