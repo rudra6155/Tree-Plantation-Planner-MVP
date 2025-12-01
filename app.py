@@ -90,6 +90,44 @@ except Exception:
     def check_and_award_badges():
         pass
 
+
+def standardize_plant_data(plant):
+    """
+    Ensure all plants have consistent field names.
+    Fixes 'benefits' vs 'environmental_benefits' inconsistency.
+
+    Args:
+        plant (dict): Plant data dictionary
+
+    Returns:
+        dict: Standardized plant data
+    """
+    # Make a copy to avoid modifying original
+    plant = plant.copy()
+
+    # Standardize benefits fields
+    if 'environmental_benefits' not in plant and 'benefits' in plant:
+        plant['environmental_benefits'] = plant['benefits']
+    elif 'benefits' not in plant and 'environmental_benefits' in plant:
+        plant['benefits'] = plant['environmental_benefits']
+
+    # Ensure all required fields exist with defaults
+    defaults = {
+        'id': str(uuid.uuid4()),
+        'status': 'Newly Planted',
+        'health': 'Good',
+        'planted_date': datetime.datetime.now().strftime("%Y-%m-%d"),
+        'name': 'Unknown Plant',
+        'purposes': [],
+        'environmental_benefits': 'N/A',
+        'benefits': 'N/A'
+    }
+
+    for key, default_value in defaults.items():
+        if key not in plant:
+            plant[key] = default_value
+
+    return plant
 # Load environment
 load_dotenv()
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
@@ -386,6 +424,102 @@ def diagnose_plant_health(analysis):
     return issues, recommendations
 
 
+def calculate_home_air_score_15q(answers):
+    """
+    Calculate 0-100 home air health score based on 15 questions.
+
+    Args:
+        answers (dict): Dictionary with all 15 question answers
+
+    Returns:
+        int: Score from 0-100
+    """
+    score = 100
+
+    # Q1: Gas cooking (-20)
+    if answers.get('gas_cooking') == "Yes":
+        score -= 20
+
+    # Q2: Smoking (-30, most critical)
+    if answers.get('smoking') == "Yes":
+        score -= 30
+
+    # Q3: Carpets (-10, dust traps)
+    if answers.get('carpets') == "Yes":
+        score -= 10
+
+    # Q4: Ventilation (0, -10, or -20)
+    vent = answers.get('ventilation', 'Rarely')
+    if vent == "Daily":
+        pass  # No penalty
+    elif vent == "Few times a week":
+        score -= 10
+    else:  # Rarely
+        score -= 20
+
+    # Q5: Plants (+2 per plant, max +10)
+    plant_count = answers.get('plant_count', 0)
+    score += min(10, plant_count * 2)
+
+    # Q6: Air purifier (+10 if yes, -10 if no)
+    if answers.get('purifier') == "Yes":
+        score += 10
+    else:
+        score -= 10
+
+    # Q7: AC filter cleaning (0, -5, -10, -15)
+    ac_filter = answers.get('ac_filter', 'Never/Rarely')
+    if ac_filter == "Monthly":
+        pass
+    elif ac_filter == "Every 3 months":
+        score -= 5
+    elif ac_filter == "Every 6 months":
+        score -= 10
+    else:  # Never/Rarely
+        score -= 15
+
+    # Q8: Incense/candles (-10)
+    if answers.get('incense_candles') == "Yes":
+        score -= 10
+
+    # Q9: Pets (-5 if no purifier)
+    if answers.get('pets') == "Yes":
+        if answers.get('purifier') != "Yes":
+            score -= 5
+
+    # Q10: Paint age (-15 if new, -5 if medium)
+    paint_age = answers.get('paint_age', '>5 years ago')
+    if paint_age == "<1 year ago":
+        score -= 15
+    elif paint_age == "1-5 years ago":
+        score -= 5
+
+    # Q11: Traffic (-15 heavy, -8 moderate)
+    traffic = answers.get('traffic', 'Light')
+    if traffic == "Heavy":
+        score -= 15
+    elif traffic == "Moderate":
+        score -= 8
+
+    # Q12: Construction (-10)
+    if answers.get('construction') == "Yes":
+        score -= 10
+
+    # Q13: Mold (-20, serious health issue)
+    if answers.get('mold') == "Yes":
+        score -= 20
+
+    # Q14: Kitchen exhaust (-10 if no)
+    if answers.get('kitchen_exhaust') == "No":
+        score -= 10
+
+    # Q15: Hours indoors (-5 if >12hrs)
+    hours_indoors = answers.get('hours_indoors', '6-12 hours')
+    if hours_indoors == ">12 hours":
+        score -= 5
+
+    # Ensure score stays within 0-100
+    return max(0, min(100, score))
 # ===========================
 # Initialize session state
 # ===========================
@@ -441,14 +575,12 @@ if 'navigate_to' in st.session_state and st.session_state.navigate_to:
 # ===========================
 page_options = [
     "Home",
-    "🌫️ AQI Dashboard",
-    "Tree Recommendations",
+    "🌫️ Air Quality Hub",  # NEW - merged page
     "Planting Guide",
-    "Plant Care Tracker",
-    "🧮 Air Calculator",
-    "🏠 Home Air Score",
-    "🩺 Plant Doctor",
+    "🌿 My Garden",  # renamed from "Plant Care Tracker"
+    "🧮 Tools",  # NEW - will add later
     "Impact Tracker",
+    "🛒 Marketplace",  # NEW - will add later
     "Community",
     "About"
 ]
@@ -588,7 +720,7 @@ if st.session_state.current_page == "Home":
                             )
 
                         add_xp(10, "Got recommendations!")
-                        st.session_state.navigate_to = "Tree Recommendations"
+                        st.session_state.navigate_to = "🌫️ Air Quality Hub"
                         st.rerun()
                     else:
                         st.error("Location not found")
@@ -669,7 +801,7 @@ if 'lat' in query_params and 'lon' in query_params:
             )
 
         st.query_params.clear()
-        st.session_state.current_page = "Tree Recommendations"
+        st.session_state.current_page = "🌫️ Air Quality Hub"
         st.rerun()
     except Exception as e:
         st.error(f"Location error: {e}")
@@ -677,8 +809,11 @@ if 'lat' in query_params and 'lon' in query_params:
 # ===========================
 # AQI DASHBOARD (KILLER FEATURE #1)
 # ===========================
-elif st.session_state.current_page == "🌫️ AQI Dashboard":
-    st.header("🌫️ Real-Time Air Quality Dashboard")
+# ===========================
+# AIR QUALITY HUB (MERGED: AQI + RECOMMENDATIONS)
+# ===========================
+elif st.session_state.current_page == "🌫️ Air Quality Hub":
+    st.header("🌫️ Air Quality Hub")
 
     if st.session_state.location is None:
         st.warning("⚠️ Set location on Home page first")
@@ -688,12 +823,17 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
         lat = st.session_state.location['latitude']
         lon = st.session_state.location['longitude']
 
-        st.subheader(f"📍 {st.session_state.location['address']}")
+        # ============================================
+        # SECTION 1: REAL-TIME AQI DATA (TOP)
+        # ============================================
+        st.subheader("📍 Current Location")
+        st.info(f"📍 {st.session_state.location['address']}")
 
         if not OPENWEATHER_API_KEY:
             st.error("🔑 Add OPENWEATHER_API_KEY to .env file")
             st.info("Get free API key at: https://openweathermap.org/api")
         else:
+            # Fetch live AQI data
             with st.spinner("Fetching air quality data..."):
                 aqi = fetch_aqi_openweather(lat, lon, OPENWEATHER_API_KEY)
 
@@ -704,6 +844,7 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
                 color = aqi_to_color(aqi['aqi_index'])
                 comps = aqi['components']
 
+                # Big AQI display card
                 st.markdown(f"""
                 <div style='background-color: {color}; padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 30px;'>
                     <h1 style='color: white; margin: 0;'>{label}</h1>
@@ -712,6 +853,7 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
                 </div>
                 """, unsafe_allow_html=True)
 
+                # Pollutant metrics
                 st.subheader("🔬 Pollutant Levels")
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("PM2.5", f"{comps.get('pm2_5', 0):.1f} µg/m³")
@@ -719,28 +861,28 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
                 col3.metric("NO₂", f"{comps.get('no2', 0):.1f} µg/m³")
                 col4.metric("O₃", f"{comps.get('o3', 0):.1f} µg/m³")
 
+                # Action plan
                 st.markdown("---")
-                st.subheader("📋 YOUR PERSONALIZED ACTION PLAN FOR TODAY")
-
+                st.subheader("📋 YOUR ACTION PLAN FOR TODAY")
                 actions = get_aqi_action_plan(aqi['aqi_index'], comps.get('pm2_5'), st.session_state.location)
                 for action in actions:
                     st.markdown(f"**{action}**")
 
+                # Quick plant recommendations based on AQI
                 st.markdown("---")
                 st.subheader("🌱 Plants Recommended for Today's Air Quality")
-
                 plant_recs = recommend_plants_by_aqi(comps.get('pm2_5'), aqi['aqi_index'])
                 rec_cols = st.columns(len(plant_recs))
                 for idx, rec in enumerate(plant_recs):
                     with rec_cols[idx]:
                         st.markdown(f"**{rec['name']}**")
                         st.caption(rec['reason'])
-                        if st.button(f"Add {rec['name']}", key=f"add_plant_{idx}"):
+                        if st.button(f"Add {rec['name']}", key=f"add_plant_aqi_{idx}"):
                             st.success(f"✅ {rec['name']} added!")
 
+                # Health recommendations
                 st.markdown("---")
                 st.subheader("⚕️ Health Recommendations")
-
                 if aqi['aqi_index'] >= 4:
                     st.error("⚠️ Air quality is harmful")
                     st.markdown("""
@@ -754,10 +896,10 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
                 else:
                     st.success("✅ Air quality is acceptable")
 
+                # Green shield tracker
                 if st.session_state.planted_trees:
                     st.markdown("---")
                     st.subheader("🛡️ YOUR GREEN SHIELD TODAY")
-
                     total_plants = len(st.session_state.planted_trees)
                     estimated_pm_filtered = total_plants * 2.5
                     estimated_voc_filtered = total_plants * 15
@@ -769,117 +911,125 @@ elif st.session_state.current_page == "🌫️ AQI Dashboard":
 
                     st.info("💡 Your plants are actively cleaning your air!")
             else:
-                st.error("Unable to fetch AQI data")
+                st.error("Unable to fetch AQI data. Check your API key or try again later.")
 
-# ===========================
-# Tree Recommendations
-# (MERGED FROM TPP.py for more detail)
-# ===========================
-elif st.session_state.current_page == "Tree Recommendations":
-    st.header("🌱 Plant Recommendations")
+        # ============================================
+        # SECTION 2: PLANT RECOMMENDATIONS (BOTTOM)
+        # ============================================
+        st.markdown("---")
+        st.markdown("---")
+        st.header("🌱 Smart Plant Recommendations")
 
-    if st.session_state.location is None:
-        st.warning("⚠ Please set your location on the Home page first.")
-        if st.button("← Go to Home", type="primary"):
-            navigate_to("Home")
-    else:
-        # Show mode badge
-        if st.session_state.is_balcony_mode:
-            st.success("🪴 *Balcony Mode* - Space-efficient plants")
+        if st.session_state.location is None:
+            st.warning("⚠️ Please set your location on the Home page first.")
         else:
-            st.success("🌳 *Outdoor Mode* - Ground planting trees")
-
-        st.subheader(f"📍 {st.session_state.location['address']}")
-
-        # Display climate and soil
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("Climate Conditions")
-            if st.session_state.climate_data:
-                st.write(f"🌡 Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
-                st.write(f"🌧 Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
-                st.write(f"💧 Humidity: {st.session_state.climate_data.get('humidity', 'N/A')}%")
-                st.write(f"🌍 Climate Zone: {st.session_state.climate_data['climate_zone']}")
-
-        with col2:
-            st.subheader("Soil Conditions")
-            if st.session_state.soil_data:
-                st.write(f"🪨 Soil Type: {st.session_state.soil_data['soil_type']}")
-                st.write(f"⚗ pH Level: {st.session_state.soil_data['ph_level']}")
-                st.write(f"💧 Drainage: {st.session_state.soil_data['drainage']}")
-                st.write(f"🌱 Nutrients: {st.session_state.soil_data['nutrient_level']}")
-
-        # Display recommendations
-        st.subheader("Recommended Plants")
-
-        if st.session_state.recommended_trees:
-            # Filters
-            filter_col1, filter_col2 = st.columns(2)
-
-            with filter_col1:
-                purpose_filter = st.multiselect(
-                    "Filter by purpose:",
-                    ["Air Purification", "Shade", "Fruit Production", "Carbon Sequestration",
-                     "Biodiversity", "Edible (Herbs/Vegetables)", "Aesthetic/Decor",
-                     "Low Maintenance", "Medicinal"],
-                    default=[]
-                )
-
-            with filter_col2:
-                growth_rate_filter = st.multiselect(
-                    "Filter by growth rate:",
-                    ["Fast", "Medium", "Slow"],
-                    default=[]
-                )
-
-            # Apply filters
-            filtered_trees = st.session_state.recommended_trees
-            if purpose_filter:
-                filtered_trees = [t for t in filtered_trees if any(p in t.get('purposes', []) for p in purpose_filter)]
-            if growth_rate_filter:
-                filtered_trees = [t for t in filtered_trees if t.get('growth_rate') in growth_rate_filter]
-
-            # Ensure fields exist
-            for item in filtered_trees:
-                if 'environmental_benefits' not in item and 'benefits' in item:
-                    item['environmental_benefits'] = item['benefits']
-                elif 'benefits' not in item and 'environmental_benefits' in item:
-                    item['benefits'] = item['environmental_benefits']
-
-            # Display in grid
-            if len(filtered_trees) == 0:
-                st.warning("No plants match your filters. Adjust criteria.")
+            # Show mode badge
+            if st.session_state.is_balcony_mode:
+                st.success("🪴 *Balcony Mode* - Space-efficient plants")
             else:
-                for i in range(0, len(filtered_trees), 3):
-                    cols = st.columns(3)
-                    for j in range(3):
-                        if i + j < len(filtered_trees):
-                            item = filtered_trees[i + j]
-                            with cols[j]:
-                                is_balcony = 'space_required' in item
+                st.success("🌳 *Outdoor Mode* - Ground planting trees")
 
-                                if is_balcony:
-                                    st.subheader(f"🪴 {item['name']}")
-                                    st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
-                                    st.write(f"*Space*: {item.get('space_required', 'N/A')}")
-                                    st.write(f"*Sunlight*: {item.get('sunlight_need', 'N/A')}")
-                                    st.write(f"*Watering*: {item.get('watering', 'N/A')}")
-                                    st.write(f"*Difficulty*: {item.get('care_difficulty', 'N/A')}")
-                                    st.write(f"*Benefits*: {item.get('benefits', 'N/A')}")
-                                else:
-                                    st.subheader(f"🌳 {item['name']}")
-                                    st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
-                                    st.write(f"*Growth Rate*: {item.get('growth_rate', 'N/A')}")
-                                    st.write(f"*Benefits*: {item.get('environmental_benefits', 'N/A')}")
+            # Display climate and soil data
+            col1, col2 = st.columns(2)
 
-                                if st.button(f"Select {item['name']}", key=f"select_{i}_{j}"):
-                                    st.session_state.selected_tree = item
-                                    add_xp(5, f"Selected {item['name']}")
-                                    navigate_to("Planting Guide")
-        else:
-            st.info("No recommendations yet. Return to Home to set location.")
+            with col1:
+                st.subheader("🌡️ Climate Conditions")
+                if st.session_state.climate_data:
+                    st.write(f"🌡 Avg Temperature: {st.session_state.climate_data['avg_temp']}°C")
+                    st.write(f"🌧 Annual Rainfall: {st.session_state.climate_data['annual_rainfall']} mm")
+                    st.write(f"💧 Humidity: {st.session_state.climate_data.get('humidity', 'N/A')}%")
+                    st.write(f"🌍 Climate Zone: {st.session_state.climate_data['climate_zone']}")
 
+            with col2:
+                st.subheader("🪨 Soil Conditions")
+                if st.session_state.soil_data:
+                    st.write(f"🪨 Soil Type: {st.session_state.soil_data['soil_type']}")
+                    st.write(f"⚗ pH Level: {st.session_state.soil_data['ph_level']}")
+                    st.write(f"💧 Drainage: {st.session_state.soil_data['drainage']}")
+                    st.write(f"🌱 Nutrients: {st.session_state.soil_data['nutrient_level']}")
+
+            # Plant recommendations
+            st.subheader("🌿 Recommended Plants")
+
+            if st.session_state.recommended_trees:
+                # Filters
+                filter_col1, filter_col2 = st.columns(2)
+
+                with filter_col1:
+                    purpose_filter = st.multiselect(
+                        "Filter by purpose:",
+                        ["Air Purification", "Shade", "Fruit Production", "Carbon Sequestration",
+                         "Biodiversity", "Edible (Herbs/Vegetables)", "Aesthetic/Decor",
+                         "Low Maintenance", "Medicinal"],
+                        default=[],
+                        key="purpose_filter_hub"
+                    )
+
+                with filter_col2:
+                    growth_rate_filter = st.multiselect(
+                        "Filter by growth rate:",
+                        ["Fast", "Medium", "Slow"],
+                        default=[],
+                        key="growth_filter_hub"
+                    )
+
+                # Apply filters
+                filtered_trees = st.session_state.recommended_trees
+                if purpose_filter:
+                    filtered_trees = [t for t in filtered_trees if
+                                      any(p in t.get('purposes', []) for p in purpose_filter)]
+                if growth_rate_filter:
+                    filtered_trees = [t for t in filtered_trees if t.get('growth_rate') in growth_rate_filter]
+
+                # Standardize all plant data
+                filtered_trees = [standardize_plant_data(plant) for plant in filtered_trees]
+
+                # Show count and "Show All" toggle
+                st.info(f"📊 Showing {len(filtered_trees)} plants matching your criteria")
+
+                # Toggle to show ALL plants
+                show_all = st.checkbox("🌿 Show ALL available plants (ignore filters)", key="show_all_plants_hub")
+                if show_all:
+                    if st.session_state.is_balcony_mode:
+                        filtered_trees = get_balcony_plants_data()
+                    else:
+                        filtered_trees = get_tree_data()
+                    filtered_trees = [standardize_plant_data(plant) for plant in filtered_trees]
+                    st.success(f"✅ Displaying all {len(filtered_trees)} available plants")
+
+                # Display plants in grid
+                if len(filtered_trees) == 0:
+                    st.warning("No plants match your filters. Adjust criteria or enable 'Show All'.")
+                else:
+                    for i in range(0, len(filtered_trees), 3):
+                        cols = st.columns(3)
+                        for j in range(3):
+                            if i + j < len(filtered_trees):
+                                item = filtered_trees[i + j]
+                                with cols[j]:
+                                    is_balcony = 'space_required' in item
+
+                                    if is_balcony:
+                                        st.subheader(f"🪴 {item['name']}")
+                                        st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
+                                        st.write(f"*Space*: {item.get('space_required', 'N/A')}")
+                                        st.write(f"*Sunlight*: {item.get('sunlight_need', 'N/A')}")
+                                        st.write(f"*Watering*: {item.get('watering', 'N/A')}")
+                                        st.write(f"*Difficulty*: {item.get('care_difficulty', 'N/A')}")
+                                        st.write(f"*Benefits*: {item.get('benefits', 'N/A')}")
+                                    else:
+                                        st.subheader(f"🌳 {item['name']}")
+                                        st.write(f"*Scientific*: {item.get('scientific_name', 'N/A')}")
+                                        st.write(f"*Growth Rate*: {item.get('growth_rate', 'N/A')}")
+                                        st.write(f"*Benefits*: {item.get('environmental_benefits', 'N/A')}")
+
+                                    if st.button(f"Select {item['name']}", key=f"select_hub_{i}_{j}"):
+                                        st.session_state.selected_tree = item
+                                        add_xp(5, f"Selected {item['name']}")
+                                        navigate_to("Planting Guide")
+                                        st.rerun()
+            else:
+                st.info("No recommendations yet. Return to Home to set location and preferences.")
 # ===========================
 # Planting Guide
 # (MERGED FROM TPP.py for more detail)
@@ -981,23 +1131,23 @@ elif st.session_state.current_page == "Planting Guide":
             add_xp(50, f"Planted {tree['name']}!")
             check_and_award_badges()
 
-            st.success(f"✅ {tree['name']} added! View in Plant Care Tracker.")
+            st.success(f"✅ {tree['name']} added! View in → 🌿 My Garden.")
 
             # AUTO-NAVIGATE
-            if st.button("📊 Go to Plant Care Tracker →"):
-                navigate_to("Plant Care Tracker")
+            if st.button("🌿 My Garden →"):
+                navigate_to("🌿 My Garden")
 
 # ===========================
-# Plant Care Tracker
+
 # (MERGED FROM TPP.py for more detail)
 # ===========================
-elif st.session_state.current_page == "Plant Care Tracker":
-    st.header("🌿 Plant Care Tracker")
+elif st.session_state.current_page == "🌿 My Garden":
+    st.header("🌿 My Garden")
 
     if not st.session_state.planted_trees:
         st.info("No plants tracked yet. Add plants from the Planting Guide!")
-        if st.button("🌱 Go to Recommendations", type="primary"):
-            navigate_to("Tree Recommendations")
+        if st.button("🌱 Go to 🌫️ Air Quality Hub", type="primary"):
+            navigate_to("🌫️ Air Quality Hub")
     else:
         st.subheader("🪴 Your Garden")
 
@@ -1055,135 +1205,218 @@ elif st.session_state.current_page == "Plant Care Tracker":
         st.info("Set reminders for watering, fertilizing, pruning (Coming soon!)")
 
 # ===========================
-# AIR CALCULATOR (KILLER FEATURE #3)
-# ===========================
-elif st.session_state.current_page == "🧮 Air Calculator":
-    st.header("🧮 Indoor Air Purifier Calculator")
-
-    room_sqft = st.number_input("Room area (square feet):", min_value=10, max_value=2000, value=150, step=10)
-    plant_choice = st.selectbox("Choose plant type:", list(PLANT_AIR_DATA.keys()))
-
-    if st.button("🧮 Calculate", type="primary"):
-        needed = calc_plants_needed(room_sqft, plant_choice)
-        plant_info = PLANT_AIR_DATA[plant_choice]
-
-        st.success(f"### 🌱 You need {needed} x {plant_choice}")
-        st.markdown(f"**Coverage:** {plant_info['effectiveness']} sq ft per plant")
-        st.markdown(f"**Removes:** {', '.join(plant_info['removes'])}")
-        st.markdown(f"**PM Reduction:** Up to {plant_info['pm_reduction']}%")
-        st.markdown(f"**Care Level:** {plant_info['care']}")
-
-        avg_cost_per_plant = 300
-        total_cost = needed * avg_cost_per_plant
-        st.markdown(f"**Estimated Cost:** ₹{total_cost:,}")
-
-    st.markdown("---")
-    st.subheader("📊 Plant Comparison")
-
-    comparison_data = []
-    for name, data in PLANT_AIR_DATA.items():
-        comparison_data.append({
-            "Plant": name,
-            "Coverage (sq ft)": data['effectiveness'],
-            "PM Reduction (%)": data['pm_reduction'],
-            "Care": data['care'],
-            "Plants Needed": calc_plants_needed(room_sqft, name)
-        })
-
-    df = pd.DataFrame(comparison_data).sort_values("Plants Needed")
-    st.dataframe(df, use_container_width=True, hide_index=True)
 
 # ===========================
-# HOME AIR SCORE (KILLER FEATURE #4)
 # ===========================
-elif st.session_state.current_page == "🏠 Home Air Score":
-    st.header("🏠 Home Air Health Score")
-
-    with st.form("home_air_form"):
-        q1 = st.radio("Cook with gas indoors?", ["Yes", "No"], index=1)
-        q2 = st.radio("Smoke indoors?", ["Yes", "No"], index=1)
-        q3 = st.radio("Have carpets?", ["Yes", "No"], index=0)
-        q4 = st.radio("Ventilate how often?", ["Daily", "Few times a week", "Rarely"], index=0)
-        q5 = st.number_input("Number of plants?", min_value=0, max_value=100, value=2)
-        q6 = st.radio("Use air purifier?", ["Yes", "No"], index=1)
-        q7 = st.radio("Clean AC filters?", ["Monthly", "Every 3 months", "Every 6 months", "Never/Rarely"], index=1)
-
-        submitted = st.form_submit_button("🧮 Calculate Score", type="primary")
-
-    if submitted:
-        answers = {
-            'gas_cooking': q1,
-            'smoking': q2,
-            'carpets': q3,
-            'ventilation': q4,
-            'plant_count': q5,
-            'purifier': q6,
-            'ac_filter': q7
-        }
-
-        score = calculate_home_air_score(answers)
-
-        if score >= 80:
-            color, grade = "green", "Excellent 🌟"
-        elif score >= 60:
-            color, grade = "lightgreen", "Good ✅"
-        elif score >= 40:
-            color, grade = "orange", "Fair ⚠️"
-        else:
-            color, grade = "red", "Poor ❌"
-
-        st.markdown(f"""
-        <div style='background-color: {color}; padding: 30px; border-radius: 15px; text-align: center; margin: 20px 0;'>
-            <h1 style='color: white; margin: 0;'>{score}/100</h1>
-            <h2 style='color: white; margin: 10px 0 0 0;'>{grade}</h2>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.subheader("📋 Recommendations")
-
-        if answers['gas_cooking'] == "Yes":
-            st.markdown("**Install kitchen exhaust fan**")
-        if answers['smoking'] == "Yes":
-            st.markdown("**⚠️ CRITICAL: Stop smoking indoors**")
-        if answers['ventilation'] == "Rarely":
-            st.markdown("**Open windows 15-30 min daily**")
-        if answers['plant_count'] < 5:
-            st.markdown(f"**Add {5 - answers['plant_count']} more plants**")
-        if answers['purifier'] == "No" and score < 60:
-            st.markdown("**Consider HEPA air purifier**")
-
+# TOOLS PAGE (3 TABS: AIR CALCULATOR, HOME AIR SCORE, PLANT DOCTOR)
 # ===========================
-# PLANT DOCTOR (KILLER FEATURE #5)
-# ===========================
-elif st.session_state.current_page == "🩺 Plant Doctor":
-    st.header("🩺 AI Plant Doctor")
+elif st.session_state.current_page == "🧮 Tools":
+    st.header("🧮 AirCare Tools")
+    st.info(
+        "💡 Use these tools to calculate plant needs, assess your home's air quality, and diagnose plant health issues")
 
-    uploaded = st.file_uploader("📸 Upload plant photo", type=['jpg', 'jpeg', 'png'])
+    # Create 3 tabs
+    tab1, tab2, tab3 = st.tabs(["🧮 Air Calculator", "🏠 Home Air Score", "🩺 Plant Doctor"])
 
-    if uploaded:
-        bytes_data = uploaded.getvalue()
-        st.image(bytes_data, use_column_width=True)
+    # ============================================
+    # TAB 1: AIR CALCULATOR
+    # ============================================
+    with tab1:
+        st.subheader("🧮 Indoor Air Purifier Calculator")
+        st.markdown("Calculate how many plants you need to purify your indoor space")
 
-        if st.button("🔬 Analyze", type="primary"):
-            with st.spinner("Analyzing..."):
-                analysis = analyze_plant_image(bytes_data)
-                issues, recommendations = diagnose_plant_health(analysis)
+        room_sqft = st.number_input("Room area (square feet):", min_value=10, max_value=2000, value=150, step=10,
+                                    key="calc_room_sqft")
+        plant_choice = st.selectbox("Choose plant type:", list(PLANT_AIR_DATA.keys()), key="calc_plant_choice")
 
-            st.subheader("🔍 Results")
+        if st.button("🧮 Calculate", type="primary", key="calc_button"):
+            needed = calc_plants_needed(room_sqft, plant_choice)
+            plant_info = PLANT_AIR_DATA[plant_choice]
 
-            if 'error' not in analysis:
-                col1, col2, col3 = st.columns(3)
-                col1.metric("🟢 Green", f"{analysis['green_ratio'] * 100:.1f}%")
-                col2.metric("🟤 Brown", f"{analysis['brown_ratio'] * 100:.1f}%")
-                col3.metric("💨 Dust", "High" if analysis['dusty'] else "Normal")
+            st.success(f"### 🌱 You need {needed} x {plant_choice}")
+            st.markdown(f"**Coverage:** {plant_info['effectiveness']} sq ft per plant")
+            st.markdown(f"**Removes:** {', '.join(plant_info['removes'])}")
+            st.markdown(f"**PM Reduction:** Up to {plant_info['pm_reduction']}%")
+            st.markdown(f"**Care Level:** {plant_info['care']}")
 
-            st.subheader("⚠️ Issues")
-            for issue in issues:
-                st.markdown(f"- {issue}")
+            avg_cost_per_plant = 300
+            total_cost = needed * avg_cost_per_plant
+            st.markdown(f"**Estimated Cost:** ₹{total_cost:,}")
 
-            st.subheader("💡 Recommendations")
-            for rec in recommendations:
-                st.markdown(f"- {rec}")
+        st.markdown("---")
+        st.subheader("📊 Plant Comparison")
+
+        comparison_data = []
+        for name, data in PLANT_AIR_DATA.items():
+            comparison_data.append({
+                "Plant": name,
+                "Coverage (sq ft)": data['effectiveness'],
+                "PM Reduction (%)": data['pm_reduction'],
+                "Care": data['care'],
+                "Plants Needed": calc_plants_needed(room_sqft, name)
+            })
+
+        df = pd.DataFrame(comparison_data).sort_values("Plants Needed")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ============================================
+    # TAB 2: HOME AIR SCORE
+    # ============================================
+    with tab2:
+        st.subheader("🏠 Home Air Health Score (15-Point Assessment)")
+        st.info("📋 Complete all 15 questions for accurate air quality assessment")
+
+        with st.form("home_air_form_tools"):
+            st.markdown("### 🏠 Indoor Environment")
+            q1 = st.radio("1. Do you cook with gas stove indoors?", ["Yes", "No"], index=1, key="q1_tools")
+            q2 = st.radio("2. Does anyone smoke indoors?", ["Yes", "No"], index=1, key="q2_tools")
+            q3 = st.radio("3. Do you have carpets or rugs?", ["Yes", "No"], index=0, key="q3_tools")
+
+            st.markdown("### 💨 Ventilation & Air Quality")
+            q4 = st.radio("4. How often do you ventilate your home?",
+                          ["Daily", "Few times a week", "Rarely"], index=0, key="q4_tools")
+            q6 = st.radio("5. Do you use an air purifier?", ["Yes", "No"], index=1, key="q6_tools")
+            q7 = st.radio("6. How often do you clean AC filters?",
+                          ["Monthly", "Every 3 months", "Every 6 months", "Never/Rarely"], index=1, key="q7_tools")
+            q14 = st.radio("7. Do you have a kitchen exhaust fan?", ["Yes", "No"], index=0, key="q14_tools")
+
+            st.markdown("### 🌿 Plants & Indoor Air")
+            q5 = st.number_input("8. Number of air-purifying plants in your home?",
+                                 min_value=0, max_value=100, value=2, key="q5_tools")
+
+            st.markdown("### 🗒️ Home Conditions")
+            q8 = st.radio("9. Do you burn incense or candles daily?", ["Yes", "No"], index=1, key="q8_tools")
+            q9 = st.radio("10. Do you have pets indoors?", ["Yes", "No"], index=0, key="q9_tools")
+            q10 = st.radio("11. When was your home last painted?",
+                           ["<1 year ago", "1-5 years ago", ">5 years ago"], index=2, key="q10_tools")
+            q13 = st.radio("12. Do you have visible mold or dampness?", ["Yes", "No"], index=1, key="q13_tools")
+
+            st.markdown("### 🌆 External Factors")
+            q11 = st.radio("13. How heavy is traffic near your home?",
+                           ["Heavy", "Moderate", "Light"], index=2, key="q11_tools")
+            q12 = st.radio("14. Is there active construction nearby?", ["Yes", "No"], index=1, key="q12_tools")
+
+            st.markdown("### ⏰ Lifestyle")
+            q15 = st.radio("15. Hours spent indoors daily?",
+                           ["<6 hours", "6-12 hours", ">12 hours"], index=1, key="q15_tools")
+
+            submitted = st.form_submit_button("🧮 Calculate My Air Score", type="primary")
+
+        # IMPORTANT: Process form submission OUTSIDE the form block
+        if submitted:
+            answers = {
+                'gas_cooking': q1,
+                'smoking': q2,
+                'carpets': q3,
+                'ventilation': q4,
+                'plant_count': q5,
+                'purifier': q6,
+                'ac_filter': q7,
+                'incense_candles': q8,
+                'pets': q9,
+                'paint_age': q10,
+                'traffic': q11,
+                'construction': q12,
+                'mold': q13,
+                'kitchen_exhaust': q14,
+                'hours_indoors': q15
+            }
+
+            # Calculate score using 15-question function
+            score = calculate_home_air_score_15q(answers)
+
+            # Determine color and grade
+            if score >= 80:
+                color, grade = "green", "Excellent 🌟"
+            elif score >= 60:
+                color, grade = "lightgreen", "Good ✅"
+            elif score >= 40:
+                color, grade = "orange", "Fair ⚠️"
+            else:
+                color, grade = "red", "Poor ❌"
+
+            # Display score
+            st.markdown(f"""
+            <div style='background-color: {color}; padding: 30px; border-radius: 15px; text-align: center; margin: 20px 0;'>
+                <h1 style='color: white; margin: 0;'>{score}/100</h1>
+                <h2 style='color: white; margin: 10px 0 0 0;'>{grade}</h2>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Recommendations
+            st.subheader("📋 Recommendations")
+
+            if answers['gas_cooking'] == "Yes":
+                st.markdown("**✅ Install kitchen exhaust fan**")
+            if answers['smoking'] == "Yes":
+                st.markdown("**⚠️ CRITICAL: Stop smoking indoors immediately**")
+            if answers['ventilation'] == "Rarely":
+                st.markdown("**✅ Open windows 15-30 minutes daily**")
+            if answers['plant_count'] < 5:
+                st.markdown(f"**✅ Add {5 - answers['plant_count']} more air-purifying plants**")
+            if answers['purifier'] == "No" and score < 60:
+                st.markdown("**✅ Consider investing in a HEPA air purifier**")
+            if answers['mold'] == "Yes":
+                st.markdown("**⚠️ URGENT: Address mold/dampness issues - health hazard**")
+            if answers['paint_age'] == "<1 year ago":
+                st.markdown("**⚠️ Fresh paint releases VOCs - ventilate frequently**")
+            if answers['traffic'] == "Heavy":
+                st.markdown("**✅ Keep windows closed during peak traffic hours**")
+
+            # Overall feedback
+            if score >= 80:
+                st.success("🎉 Excellent! Your home has great air quality. Keep it up!")
+            elif score >= 60:
+                st.info("👍 Good work! A few improvements will make it even better.")
+            elif score >= 40:
+                st.warning("⚠️ Your indoor air quality needs attention. Follow the recommendations above.")
+            else:
+                st.error("❌ Critical: Your indoor air quality is poor. Please take immediate action!")
+
+    # ============================================
+    # TAB 3: PLANT DOCTOR
+    # ============================================
+    with tab3:
+        st.subheader("🩺 AI Plant Doctor")
+        st.markdown("Upload a photo of your plant and get instant health diagnosis")
+
+        uploaded = st.file_uploader("📸 Upload plant photo", type=['jpg', 'jpeg', 'png'], key="plant_doctor_upload")
+
+        if uploaded:
+            bytes_data = uploaded.getvalue()
+            st.image(bytes_data, use_column_width=True)
+
+            if st.button("🔬 Analyze Plant Health", type="primary", key="analyze_plant_button"):
+                with st.spinner("Analyzing plant health..."):
+                    analysis = analyze_plant_image(bytes_data)
+                    issues, recommendations = diagnose_plant_health(analysis)
+
+                st.subheader("🔍 Analysis Results")
+
+                if 'error' not in analysis:
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("🟢 Green Coverage", f"{analysis['green_ratio'] * 100:.1f}%")
+                    col2.metric("🟤 Brown/Dead", f"{analysis['brown_ratio'] * 100:.1f}%")
+                    col3.metric("💨 Dust Level", "High" if analysis['dusty'] else "Normal")
+
+                st.subheader("⚠️ Detected Issues")
+                for issue in issues:
+                    st.markdown(f"- {issue}")
+
+                st.subheader("💡 Care Recommendations")
+                for rec in recommendations:
+                    st.markdown(f"- {rec}")
+
+                # Additional tips
+                st.markdown("---")
+                st.info("""
+                **💡 General Plant Care Tips:**
+                - Water when top 2cm of soil is dry
+                - Clean leaves weekly with damp cloth
+                - Rotate plant weekly for even growth
+                - Check for pests during watering
+                - Fertilize every 2-4 weeks during growing season
+                """)
 
 # ===========================
 # Impact Tracker
@@ -1242,6 +1475,67 @@ elif st.session_state.current_page == "Impact Tracker":
         )
         st.plotly_chart(fig)
 
+# ===========================
+# MARKETPLACE
+# ===========================
+elif st.session_state.current_page == "🛒 Marketplace":
+    st.header("🛒 AirCare Marketplace")
+    st.info("🚧 **Coming Soon!** Browse plants, seeds, pots, and air quality products")
+
+    # Import marketplace data
+    try:
+        from marketplace_data import get_marketplace_products
+
+        products = get_marketplace_products()
+    except ImportError:
+        st.error("⚠️ marketplace_data.py not found. Please create the file.")
+        products = []
+
+    if products:
+        # Category filter
+        all_categories = list(set([p['category'] for p in products]))
+        selected_category = st.selectbox(
+            "Filter by category:",
+            ["All Categories"] + sorted(all_categories),
+            key="marketplace_category_filter"
+        )
+
+        # Filter products
+        if selected_category != "All Categories":
+            filtered_products = [p for p in products if p['category'] == selected_category]
+        else:
+            filtered_products = products
+
+        st.markdown(f"### 🛍️ Showing {len(filtered_products)} products")
+
+        # Display products in 3-column grid
+        for i in range(0, len(filtered_products), 3):
+            cols = st.columns(3)
+            for j in range(3):
+                if i + j < len(filtered_products):
+                    product = filtered_products[i + j]
+                    with cols[j]:
+                        # Product card
+                        st.markdown(f"### {product['name']}")
+                        st.markdown(f"**Category:** {product['category']}")
+                        st.markdown(f"**Price:** ₹{product['price']}")
+                        st.caption(product['description'])
+
+                        if 'benefits' in product and product['benefits']:
+                            st.markdown(f"*Benefits:* {product['benefits']}")
+
+                        # Disabled "Add to Cart" button with coming soon message
+                        st.button(
+                            "🛒 Add to Cart",
+                            key=f"cart_{product['name']}_{i}_{j}",
+                            disabled=True,
+                            help="Coming soon! Marketplace under development"
+                        )
+                        st.caption("🚧 Coming soon")
+
+                        st.markdown("---")
+    else:
+        st.warning("No products available. Check marketplace_data.py file.")
 # ===========================
 # Community
 # ===========================
@@ -1578,4 +1872,6 @@ elif st.session_state.current_page == "About":
         if st.button("👥 Join Community", type="secondary", use_container_width=True):
             navigate_to("Community")
 
+
 st.markdown("---")
+

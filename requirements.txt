@@ -1,2 +1,12 @@
 streamlit
 python-dotenv
+# REQUIRED BY YOUR CODE IMPORTS
+streamlit>=1.44.1
+pandas>=2.2.3
+numpy
+requests
+geopy>=2.4.1
+matplotlib>=3.10.1
+plotly>=6.0.1
+Pillow # For PIL.Image
+python-dotenv # For load_dotenv (which you wanted to keep in the code)

@@ -23,6 +23,7 @@ def get_planting_guide(tree_name):
     
     # Tree-specific additional steps
     specific_steps = {
+        # EXISTING OUTDOOR TREES (keep these)
         "Neem": [
             "Neem prefers well-drained soil, so ensure good drainage if your soil is clay-heavy.",
             "Space multiple neem trees at least 8-10 meters apart to allow for their full canopy spread."
@@ -71,12 +72,145 @@ def get_planting_guide(tree_name):
         "Eucalyptus": [
             "Plant away from water sources and agricultural fields as eucalyptus can deplete groundwater.",
             "Space trees at least 5-6 meters apart if planting in rows for windbreaks."
+        ],
+
+        # NEW: BALCONY PLANTS (15 total)
+        "Snake Plant (Sansevieria)": [
+            "Choose a pot with drainage holes (6-8 inches diameter)",
+            "Fill with well-draining cactus/succulent mix",
+            "Plant at same depth as nursery pot",
+            "Water once every 2-3 weeks (let soil dry completely)",
+            "Place in any location - tolerates low light well",
+            "Fertilize once every 2-3 months with diluted liquid fertilizer"
+        ],
+        "Tulsi (Holy Basil)": [
+            "Select 8-10 inch pot with good drainage",
+            "Use soil mix: 40% garden soil + 30% cocopeat + 30% compost",
+            "Plant seeds 1cm deep or transplant seedling carefully",
+            "Water daily in morning (keep soil moist but not waterlogged)",
+            "Place in location with 6+ hours direct sunlight",
+            "Pinch growing tips regularly to encourage bushiness",
+            "Harvest leaves from top to promote new growth"
+        ],
+        "Money Plant (Pothos)": [
+            "Use 6-8 inch pot with drainage holes",
+            "Plant in regular potting mix or even water (hydroponic)",
+            "Keep 2-3 nodes below soil if planting cutting",
+            "Water when top inch of soil feels dry (twice weekly)",
+            "Grows well in indirect bright light",
+            "Can be grown as climber (provide support) or trailing plant",
+            "Wipe leaves monthly to remove dust"
+        ],
+        "Aloe Vera": [
+            "Choose 8-10 inch terracotta pot (porous, aids drainage)",
+            "Use cactus/succulent soil mix or add sand to regular soil",
+            "Plant so that lower leaves are just above soil line",
+            "Water deeply but infrequently (every 2 weeks)",
+            "Place in bright location with 6+ hours sunlight",
+            "Avoid overwatering - leads to root rot",
+            "Harvest outer leaves when plant is mature (2+ years)"
+        ],
+        "Mint (Pudina)": [
+            "Use 8-10 inch wide pot (mint spreads horizontally)",
+            "Fill with well-draining potting mix rich in compost",
+            "Plant stem cuttings 2-3 inches deep",
+            "Water daily to keep soil consistently moist",
+            "Provide 4-6 hours sunlight (partial shade acceptable)",
+            "Harvest leaves regularly to prevent flowering",
+            "Divide and repot every 6 months to control spread"
+        ],
+        "Spider Plant": [
+            "Select 6-8 inch pot with drainage",
+            "Use standard potting mix",
+            "Plant so crown is at soil level (not buried)",
+            "Water 2-3 times weekly (when top inch is dry)",
+            "Grows well in indirect light",
+            "Produces baby plants (spiderettes) - can be propagated",
+            "Remove brown tips by trimming with scissors"
+        ],
+        "Coriander (Dhania)": [
+            "Use 8-10 inch pot, at least 6 inches deep",
+            "Fill with loose, well-draining potting mix",
+            "Sow seeds 1/4 inch deep, 2 inches apart",
+            "Water daily lightly (keep soil moist)",
+            "Provide 4-6 hours sunlight",
+            "Germination occurs in 7-10 days",
+            "Harvest leaves when plant is 6 inches tall",
+            "Replant every 3-4 weeks for continuous harvest"
+        ],
+        "Peace Lily": [
+            "Choose 8-10 inch pot with drainage",
+            "Use rich, well-draining potting mix with peat moss",
+            "Plant at same depth as original container",
+            "Water weekly (when top inch is dry)",
+            "Thrives in low to medium indirect light",
+            "Mist leaves weekly to increase humidity",
+            "Remove spent flowers and yellow leaves promptly"
+        ],
+        "Tomato (Dwarf Variety)": [
+            "Use large 12-14 inch pot (5-gallon capacity minimum)",
+            "Fill with nutrient-rich potting mix + compost",
+            "Plant seedling deep (up to first set of leaves)",
+            "Water daily in morning (needs consistent moisture)",
+            "Requires 6-8 hours direct sunlight",
+            "Provide stake or cage support as plant grows",
+            "Fertilize every 2 weeks with tomato-specific fertilizer",
+            "Pinch off suckers between main stem and branches"
+        ],
+        "Areca Palm": [
+            "Select large 14-16 inch pot with drainage",
+            "Use well-draining potting mix with peat and perlite",
+            "Plant at same depth as nursery pot",
+            "Water 3 times weekly (keep soil slightly moist)",
+            "Provide bright, indirect light (4-6 hours)",
+            "Mist leaves regularly to maintain humidity",
+            "Fertilize monthly during growing season",
+            "Remove yellow fronds at base"
+        ],
+        "Curry Leaves (Kadi Patta)": [
+            "Use 12-14 inch pot with good drainage",
+            "Plant in mix: 50% garden soil + 30% compost + 20% sand",
+            "Plant seedling or stem cutting 3-4 inches deep",
+            "Water daily (keep soil consistently moist)",
+            "Requires 6-8 hours direct sunlight",
+            "Fertilize monthly with organic fertilizer",
+            "Prune regularly to encourage branching",
+            "Protect from frost in winter"
+        ],
+        "Jade Plant": [
+            "Choose small 6-8 inch pot with drainage holes",
+            "Use cactus/succulent soil mix",
+            "Plant cutting or small plant at soil level",
+            "Water every 2 weeks (let soil dry completely)",
+            "Provide 4-6 hours sunlight",
+            "Very low maintenance - avoid overwatering",
+            "Fertilize once every 3-4 months"
+        ],
+        "Rubber Plant": [
+            "Select 12-16 inch pot with drainage",
+            "Use well-draining potting mix",
+            "Plant at same depth as nursery container",
+            "Water twice weekly (when top 2 inches dry)",
+            "Needs bright, indirect light (4-6 hours)",
+            "Wipe leaves weekly with damp cloth",
+            "Prune to control size and shape",
+            "Fertilize monthly during spring and summer"
+        ],
+        "Boston Fern": [
+            "Use 10-12 inch pot or hanging basket",
+            "Fill with peat-based potting mix (retains moisture)",
+            "Plant so crown is slightly above soil",
+            "Water 3-4 times weekly (keep consistently moist)",
+            "Prefers high humidity - mist daily or use pebble tray",
+            "Grows well in indirect light (2-4 hours)",
+            "Remove brown fronds regularly",
+            "Avoid placing near heating vents or AC"
         ]
     }
     
     # Combine common steps with specific steps (if available)
     if tree_name in specific_steps:
-        return common_steps + specific_steps[tree_name]
+        return specific_steps[tree_name]
     else:
         return common_steps
 
