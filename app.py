@@ -8,6 +8,8 @@ import os
 from dotenv import load_dotenv
 from PIL import Image
 import io
+import time  # <-- ADD THIS LINE
+import db_handler  # <-- ADD THIS LINE
 import json
 
 # existing imports from your project
@@ -134,6 +136,69 @@ OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
 
 st.set_page_config(page_title="AirCare - Tree & Air Quality Planner", page_icon="🌳", layout="wide")
 
+
+# ===========================
+# USER AUTHENTICATION & PERSISTENCE
+# ===========================
+
+def init_user_session():
+    """Initialize user session with persistence"""
+
+    # Check if user already logged in this session
+    if 'user_id' in st.session_state and st.session_state.user_id:
+        # Load user data
+        try:
+            user_trees = db_handler.load_planted_trees(st.session_state.user_id)
+            if user_trees:
+                st.session_state.planted_trees = user_trees
+
+            user_logs = db_handler.load_watering_logs(st.session_state.user_id)
+            if user_logs:
+                st.session_state.watering_logs = user_logs
+        except:
+            pass  # First time user or no data yet
+        return True
+
+    return False
+
+
+# Check if user is logged in
+if not init_user_session():
+    # Show login screen
+    st.title("🌱 Welcome to AirCare")
+    st.markdown("### Track your plants, monitor air quality, make an impact")
+
+    st.markdown("---")
+    st.subheader("🔐 Login to Continue")
+
+    with st.form("login_form"):
+        st.markdown("Enter your phone number or email to save your progress:")
+        user_id = st.text_input("Phone Number or Email", placeholder="+91-9876543210 or email@example.com")
+        remember_me = st.checkbox("Remember me on this device")
+        submitted = st.form_submit_button("🚀 Get Started", type="primary")
+
+    if submitted and user_id:
+        # Basic validation
+        if len(user_id) >= 5:  # Minimum length
+            st.session_state.user_id = user_id
+
+            # Try to load existing user data
+            try:
+                user_trees = db_handler.load_planted_trees(user_id)
+                if user_trees:
+                    st.session_state.planted_trees = user_trees
+                    st.success(f"✅ Welcome back! Loaded {len(user_trees)} plants.")
+                else:
+                    st.success("✅ Account created! Start tracking your plants.")
+            except:
+                st.success("✅ Account created! Start tracking your plants.")
+
+            st.rerun()
+        else:
+            st.error("Please enter a valid phone number or email")
+
+    # Stop rendering rest of app until logged in
+    st.stop()
 # ===========================
 # AIR QUALITY FUNCTIONS
 # ===========================
@@ -728,31 +793,9 @@ if st.session_state.current_page == "Home":
                     st.error(f"Error: {e}")
         else:
             st.info("Click to use device location")
-            if st.button("📍 Get Current Location", type="primary"):
-                js = """
-                <script>
-                function getLocation() {
-                    if (!navigator.geolocation) {
-                        alert('Geolocation not supported');
-                        return;
-                    }
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            const newUrl = window.location.pathname + '?lat=' + lat + '&lon=' + lon;
-                            window.location.href = newUrl;
-                        },
-                        (err) => {
-                            alert('Enable location permissions');
-                        },
-                        { enableHighAccuracy: true, timeout: 10000 }
-                    );
-                }
-                getLocation();
-                </script>
-                """
-                components.html(js, height=0)
+            st.button("📍 Get Current Location", type="primary", disabled=True,
+                      help="🚧 Under construction - Please use address search above")
+            st.caption("🚧 Feature under development. Use address search for now.")
 
     with col2:
         st.subheader("💡 Did You Know?")
@@ -878,7 +921,29 @@ elif st.session_state.current_page == "🌫️ Air Quality Hub":
                         st.markdown(f"**{rec['name']}**")
                         st.caption(rec['reason'])
                         if st.button(f"Add {rec['name']}", key=f"add_plant_aqi_{idx}"):
-                            st.success(f"✅ {rec['name']} added!")
+                            # Find the full plant data
+                            all_plants = get_balcony_plants_data() if st.session_state.is_balcony_mode else get_tree_data()
+                            selected_plant = next((p for p in all_plants if p['name'] == rec['name']), None)
+
+                            if selected_plant:
+                                # Add to session
+                                plant_to_add = selected_plant.copy()
+                                plant_to_add['id'] = str(uuid.uuid4())
+                                plant_to_add['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
+                                plant_to_add['status'] = "Newly Planted"
+                                plant_to_add['health'] = "Good"
+
+                                st.session_state.planted_trees.append(plant_to_add)
+
+                                # SAVE TO DATABASE
+                                if 'user_id' in st.session_state:
+                                    db_handler.save_planted_trees(st.session_state.user_id,
+                                                                  st.session_state.planted_trees)
+
+                                st.success(f"✅ {rec['name']} added to your garden!")
+                                add_xp(30, f"Added {rec['name']} based on AQI!")
+                            else:
+                                st.error("Plant data not found. Please try from recommendations page.")
 
                 # Health recommendations
                 st.markdown("---")
@@ -1134,8 +1199,29 @@ elif st.session_state.current_page == "Planting Guide":
             st.success(f"✅ {tree['name']} added! View in → 🌿 My Garden.")
 
             # AUTO-NAVIGATE
-            if st.button("🌿 My Garden →"):
+            if st.button("✅ Add to My Garden", type="primary", key="add_to_garden_btn"):
+                tree_to_track = tree.copy()
+                tree_to_track['id'] = str(uuid.uuid4())
+                tree_to_track['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
+                tree_to_track['status'] = "Newly Planted"
+                tree_to_track['health'] = "Good"
+
+                st.session_state.planted_trees.append(tree_to_track)
+                st.session_state.user_profile['trees_planted'] = len(st.session_state.planted_trees)
+
+                # SAVE TO DATABASE
+                if 'user_id' in st.session_state:
+                    db_handler.save_planted_trees(st.session_state.user_id, st.session_state.planted_trees)
+
+                add_xp(50, f"Planted {tree['name']}!")
+                check_and_award_badges()
+
+                st.success(f"✅ {tree['name']} added and saved!")
+
+                # Auto-navigate
+                time.sleep(1)  # Show success message
                 navigate_to("🌿 My Garden")
+                st.rerun()
 
 # ===========================
 
