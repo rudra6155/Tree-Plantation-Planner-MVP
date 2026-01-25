@@ -186,6 +186,266 @@ def get_planting_guide(tree_name):
             "Very low maintenance - avoid overwatering",
             "Fertilize once every 3-4 months"
         ],
+        # NEW OUTDOOR TREES
+        "Jackfruit (Kathal)": [
+            "Requires large space - plant at least 25-30 feet from structures",
+            "Dig hole 3 feet deep and wide, fill with compost-enriched soil",
+            "Plant grafted saplings for fruit in 3-4 years (seedlings take 7-8 years)",
+            "Water regularly in first 2 years, then tree is self-sufficient",
+            "Stake heavily - young jackfruit trees need support",
+            "Apply organic manure twice yearly (spring and monsoon)"
+        ],
+        "Coconut (Nariyal)": [
+            "Best suited for coastal or warm, humid regions",
+            "Dig hole 3x3 feet, add 20kg compost and cocopeat mix",
+            "Place germinated nut horizontally, 1/3rd above soil",
+            "Water daily for first 3 years (coconuts need consistent moisture)",
+            "Apply 50kg organic manure + 2kg salt annually",
+            "Mulch heavily to retain moisture around base"
+        ],
+        "Tamarind (Imli)": [
+            "Choose permanent location - tamarind trees are long-lived (150+ years)",
+            "Very deep roots - avoid planting near buildings or pipes",
+            "Requires minimal care once established (extremely hardy)",
+            "Water only in extreme drought during first 2 years",
+            "No fertilizer needed - tamarind thrives in poor soil",
+            "Prune lower branches for easier fruit collection"
+        ],
+        "Karanj (Pongamia)": [
+            "Salt-tolerant - excellent for coastal erosion control",
+            "Can grow in poor, degraded soil (nitrogen-fixing roots)",
+            "Water moderately in first year, then rain-fed",
+            "Survives flooding and waterlogging",
+            "Space 15-20 feet apart in plantations",
+            "Seeds used for biodiesel - harvest after 4-5 years"
+        ],
+        "Kadamba": [
+            "Prefers moist, well-drained soil near water bodies",
+            "Fast-growing - needs ample space (40 feet spread)",
+            "Water generously in first 2 years",
+            "Apply compost in monsoon season",
+            "Pruning not required - natural rounded canopy",
+            "Flowers attract butterflies and bees"
+        ],
+        "Parijat (Night Jasmine)": [
+            "Can be grown as small tree or large shrub",
+            "Prefers partial shade in hot regions",
+            "Use well-draining soil mix with compost",
+            "Water regularly but avoid waterlogging",
+            "Flowers bloom at night and fall by morning",
+            "Collect fallen flowers for tea or worship use"
+        ],
+        "Bael (Wood Apple)": [
+            "Extremely hardy - survives neglect and drought",
+            "Plant in full sun for best fruiting",
+            "Deep taproot - difficult to transplant after establishment",
+            "Minimal watering needed after first year",
+            "Thorny branches - handle carefully during pruning",
+            "Fruits ripen in 10-11 months (harvest when yellow)"
+        ],
+        "Custard Apple (Sitaphal)": [
+            "Prefers dry climate with distinct wet and dry seasons",
+            "Plant in raised beds if soil drainage is poor",
+            "Water regularly during flowering and fruiting",
+            "Prune to maintain manageable height (8-10 feet)",
+            "Apply potash-rich fertilizer before flowering",
+            "Fruits mature in 4-5 months after flowering"
+        ],
+
+        # NEW BALCONY PLANTS
+        "Basil (Sweet Basil)": [
+            "Use 8-10 inch pot with drainage holes",
+            "Plant in nutrient-rich potting mix",
+            "Sow seeds 1/4 inch deep or transplant seedlings",
+            "Water daily to keep soil moist (not soggy)",
+            "Pinch off flower buds to encourage leaf growth",
+            "Harvest leaves from top to promote bushiness",
+            "Replant every 3-4 months for fresh supply"
+        ],
+        "Rosemary": [
+            "Use well-draining cactus/succulent mix",
+            "Plant in terracotta pot (breathable)",
+            "Avoid overwatering - let top inch dry between watering",
+            "Requires at least 6 hours direct sunlight",
+            "Prune regularly to prevent legginess",
+            "Can survive indoors near bright window",
+            "Drought-tolerant once established"
+        ],
+        "Chili Pepper (Dwarf)": [
+            "Use 10-12 inch deep pot with drainage",
+            "Plant in nutrient-rich mix with compost",
+            "Transplant seedlings after 4-6 weeks",
+            "Water daily during fruiting stage",
+            "Provide stake support as plant grows",
+            "Fertilize every 2 weeks with balanced NPK",
+            "Harvest chillies when fully colored"
+        ],
+        "Oregano": [
+            "Use 8-10 inch pot with excellent drainage",
+            "Plant in well-draining potting mix",
+            "Water only when top inch is dry (avoid overwatering)",
+            "Prefers full sun but tolerates partial shade",
+            "Pinch growing tips to encourage bushy growth",
+            "Harvest leaves before flowering for best flavor",
+            "Very drought-tolerant - ideal for beginners"
+        ],
+        "Thyme": [
+            "Use shallow 6-8 inch pot (thyme has shallow roots)",
+            "Plant in sandy, well-draining mix",
+            "Water sparingly - thyme prefers dry conditions",
+            "Requires full sun (6+ hours)",
+            "Trim regularly to prevent woody growth",
+            "Harvest sprigs as needed (leaves most flavorful before flowering)",
+            "Extremely low maintenance"
+        ],
+        "ZZ Plant": [
+            "Use pot with drainage holes (6-10 inches)",
+            "Plant in well-draining potting mix",
+            "Water only when soil is completely dry (every 2-3 weeks)",
+            "Tolerates low light but grows faster in bright indirect light",
+            "Wipe leaves monthly to remove dust",
+            "Virtually indestructible - perfect for beginners",
+            "Toxic if ingested - keep away from pets and children"
+        ],
+        "Golden Pothos": [
+            "Use 6-8 inch pot or hanging basket",
+            "Plant in regular potting mix or water (hydroponic)",
+            "Water when top 2 inches are dry",
+            "Thrives in low to bright indirect light",
+            "Prune regularly to control length",
+            "Propagate easily from stem cuttings in water",
+            "Variegation fades in very low light"
+        ],
+        "Weeping Fig": [
+            "Use large 12-16 inch pot with drainage",
+            "Plant in well-draining potting mix",
+            "Water when top 2 inches dry (2-3 times weekly)",
+            "Needs bright, indirect light (not direct sun)",
+            "Sensitive to location changes - avoid moving once established",
+            "Mist leaves weekly to increase humidity",
+            "Drops leaves when stressed (normal adjustment response)"
+        ],
+        "Croton": [
+            "Use 10-14 inch pot with drainage",
+            "Plant in rich, well-draining potting mix",
+            "Keep soil consistently moist (water 3-4 times weekly)",
+            "Requires bright light for vibrant colors (6+ hours)",
+            "Mist regularly - prefers high humidity",
+            "Wipe leaves weekly to showcase colors",
+            "Toxic to pets - keep out of reach"
+        ],
+        "English Ivy": [
+            "Use 6-8 inch pot or hanging basket",
+            "Plant in moisture-retaining potting mix",
+            "Water frequently to keep soil consistently moist",
+            "Grows well in low to medium light",
+            "Excellent air purifier - removes mold spores",
+            "Prune to control growth and shape",
+            "Toxic to pets - keep away from cats and dogs"
+        ],
+        "Brahmi (Indian Pennywort)": [
+            "Use wide, shallow pot (8-10 inches) - Brahmi spreads horizontally",
+            "Plant in rich, moist potting mix with compost",
+            "Keep soil consistently wet (can even grow in water tray)",
+            "Prefers partial shade in hot climates",
+            "Pinch growing tips to encourage dense growth",
+            "Harvest leaves regularly to promote new growth",
+            "Can propagate easily from stem cuttings in water",
+            "MEDICINAL USE: Chew 4-5 fresh leaves every morning for memory and focus"
+        ],
+        "Ashwagandha (Indian Ginseng)": [
+            "Use deep pot (12-14 inches) for taproot development",
+            "Plant in well-draining sandy-loamy mix",
+            "Sow seeds ½ inch deep OR transplant seedlings",
+            "Water sparingly - prefers dry conditions (every 2-3 days)",
+            "Requires full sun (6+ hours)",
+            "Harvest roots after 6-8 months (when leaves yellow)",
+            "Dry roots in shade, grind to powder and store",
+            "MEDICINAL USE: ½ tsp root powder in warm milk before bed"
+        ],
+        "Stevia (Sweet Leaf)": [
+            "Use 10-12 inch pot with good drainage",
+            "Plant in rich, slightly acidic potting mix",
+            "Keep soil consistently moist (not waterlogged)",
+            "Provide 5-7 hours sunlight",
+            "Pinch tips regularly to prevent flowering (leaves lose sweetness)",
+            "Harvest leaves when plant is 8-10 inches tall",
+            "Dry leaves in shade, store in airtight container",
+            "MEDICINAL USE: 1 fresh leaf = 1 tsp sugar (300x sweeter!)"
+        ],
+        "Lemongrass (Hari Chai Patti)": [
+            "Use large pot (12-14 inches) as lemongrass spreads",
+            "Plant in well-draining potting mix",
+            "Buy a stalk from market, place in water until roots appear",
+            "Transplant to pot once roots are 2-3 inches",
+            "Water daily - keeps soil moist",
+            "Requires full sun (6+ hours)",
+            "Harvest outer stalks when 12+ inches tall",
+            "MEDICINAL USE: Crush 2-3 stalks, boil for tea to cure indigestion"
+        ],
+        "Ajwain (Carom Plant)": [
+            "Use 10-12 inch pot with excellent drainage",
+            "Plant in light, sandy potting mix",
+            "Sow seeds ¼ inch deep",
+            "Water every 2 days (avoid overwatering)",
+            "Needs 5-7 hours sunlight",
+            "Pinch growing tips to encourage bushy growth",
+            "Harvest seeds when they turn brown (4-5 months)",
+            "MEDICINAL USE: Chew ½ tsp seeds after heavy meals for instant gas relief"
+        ],
+        "Methi (Fenugreek)": [
+            "Use 8-10 inch pot, shallow is fine",
+            "Scatter seeds densely (microgreens style)",
+            "Cover with ¼ inch soil, water gently",
+            "Keep soil moist, germination in 3-5 days",
+            "Harvest as microgreens (7-10 days) OR let mature (30 days)",
+            "For seeds, wait 3-4 months",
+            "Resow every 2-3 weeks for continuous supply",
+            "MEDICINAL USE: Soak 1 tbsp seeds overnight, drink water on empty stomach for diabetes"
+        ],
+        "Ginger (Adrak)": [
+            "Buy fresh ginger rhizome with 'eyes' (growth buds)",
+            "Use wide, shallow pot (12-14 inches, 8 inches deep)",
+            "Plant rhizome 2 inches deep, buds facing up",
+            "Use rich, well-draining potting mix with compost",
+            "Keep soil consistently moist (not soggy)",
+            "Prefers partial shade (4-6 hours indirect light)",
+            "Harvest after 8-10 months when leaves yellow",
+            "MEDICINAL USE: Grate fresh ginger, boil with tulsi for cold/cough relief"
+        ],
+        "Turmeric (Haldi)": [
+            "Buy fresh turmeric rhizome from market",
+            "Use large, deep pot (14-16 inches)",
+            "Plant 2-3 inches deep in rich potting mix",
+            "Water daily to keep soil moist",
+            "Prefers warm, humid conditions",
+            "Partial shade is ideal (4-6 hours)",
+            "Harvest after 8-10 months (when leaves dry)",
+            "Boil, dry, and grind into powder",
+            "MEDICINAL USE: Turmeric milk (haldi doodh) every night for immunity"
+        ],
+        "Insulin Plant (Costus)": [
+            "Use 10-12 inch pot with drainage holes",
+            "Plant in well-draining potting mix with compost",
+            "Keep soil moist but not waterlogged",
+            "Prefers partial shade (4-6 hours indirect light)",
+            "Mist leaves regularly (likes humidity)",
+            "Very low maintenance once established",
+            "Propagates easily from stem cuttings",
+            "MEDICINAL USE: Chew 1-2 leaves on empty stomach daily (proven to reduce blood sugar)"
+        ],
+        "Hibiscus (Gudhal)": [
+            "Use large pot (14-16 inches) for shrub growth",
+            "Plant in nutrient-rich potting mix",
+            "Water daily - hibiscus loves moisture",
+            "Requires full sun (6+ hours) for flowering",
+            "Fertilize every 2 weeks during growing season",
+            "Prune regularly to maintain shape and promote flowering",
+            "Deadhead spent flowers to encourage more blooms",
+            "MEDICINAL USE: Grind 5-6 leaves + 2 flowers into paste, apply to hair for 30 mins (stops hairfall)"
+        ],
+
+
         "Rubber Plant": [
             "Select 12-16 inch pot with drainage",
             "Use well-draining potting mix",
