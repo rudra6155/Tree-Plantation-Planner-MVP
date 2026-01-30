@@ -1,75 +1,45 @@
 """
-Database Handler Module
-Simple JSON-based persistence for AirCare app
+Database Handler Module - Firebase Edition
+Cloud-based persistence for AirCare app using Firebase Firestore
 Stores user data, planted trees, watering logs, etc.
 """
 
 import json
-import os
+import streamlit as st
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-# Create data directory if it doesn't exist
-DATA_DIR = "aircare_data"
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
+# Firebase imports
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+except ImportError:
+    st.error("Firebase not installed. Run: pip install firebase-admin")
+    st.stop()
 
 
 # =====================================
-# HELPER FUNCTIONS
+# FIREBASE INITIALIZATION
 # =====================================
 
-def _get_file_path(user_id: str, data_type: str) -> str:
-    """
-    Generate file path for user data
+def initialize_firebase():
+    """Initialize Firebase app (only once)"""
+    if not firebase_admin._apps:
+        try:
+            # Load credentials from Streamlit secrets
+            firebase_creds = dict(st.secrets["firebase"])
+            cred = credentials.Certificate(firebase_creds)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            st.error(f"Firebase initialization failed: {e}")
+            st.error("Make sure you've added Firebase credentials to Streamlit secrets!")
+            st.stop()
 
-    Args:
-        user_id: Unique user identifier
-        data_type: Type of data (e.g., 'profile', 'trees', 'logs')
-
-    Returns:
-        str: Full file path
-    """
-    return os.path.join(DATA_DIR, f"{user_id}_{data_type}.json")
-
-
-def _load_json(file_path: str) -> Optional[Dict]:
-    """
-    Load JSON data from file
-
-    Args:
-        file_path: Path to JSON file
-
-    Returns:
-        dict or None: Loaded data or None if file doesn't exist
-    """
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Error loading {file_path}: {e}")
-    return None
+    return firestore.client()
 
 
-def _save_json(file_path: str, data: Dict) -> bool:
-    """
-    Save data to JSON file
-
-    Args:
-        file_path: Path to JSON file
-        data: Dictionary to save
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e:
-        print(f"Error saving {file_path}: {e}")
-        return False
+# Initialize on import
+db = initialize_firebase()
 
 
 # =====================================
@@ -78,31 +48,27 @@ def _save_json(file_path: str, data: Dict) -> bool:
 
 def save_user_data(user_id: str, data: Dict) -> bool:
     """
-    Save user profile data
+    Save user profile data to Firebase
 
     Args:
-        user_id: User identifier (e.g., email or session ID)
+        user_id: User identifier
         data: User profile dictionary
 
     Returns:
         bool: Success status
-
-    Example:
-        user_data = {
-            'name': 'John Doe',
-            'location': 'Mumbai',
-            'preferences': {...}
-        }
-        save_user_data('user123', user_data)
     """
-    file_path = _get_file_path(user_id, 'profile')
-    data['last_updated'] = datetime.now().isoformat()
-    return _save_json(file_path, data)
+    try:
+        data['last_updated'] = datetime.now().isoformat()
+        db.collection('users').document(user_id).set(data, merge=True)
+        return True
+    except Exception as e:
+        st.error(f"Error saving user data: {e}")
+        return False
 
 
 def load_user_data(user_id: str) -> Optional[Dict]:
     """
-    Load user profile data
+    Load user profile data from Firebase
 
     Args:
         user_id: User identifier
@@ -110,8 +76,14 @@ def load_user_data(user_id: str) -> Optional[Dict]:
     Returns:
         dict or None: User data or None if not found
     """
-    file_path = _get_file_path(user_id, 'profile')
-    return _load_json(file_path)
+    try:
+        doc = db.collection('users').document(user_id).get()
+        if doc.exists:
+            return doc.to_dict()
+        return None
+    except Exception as e:
+        st.error(f"Error loading user data: {e}")
+        return None
 
 
 # =====================================
@@ -120,7 +92,7 @@ def load_user_data(user_id: str) -> Optional[Dict]:
 
 def save_planted_trees(user_id: str, trees: List[Dict]) -> bool:
     """
-    Save list of planted trees
+    Save list of planted trees to Firebase
 
     Args:
         user_id: User identifier
@@ -128,29 +100,22 @@ def save_planted_trees(user_id: str, trees: List[Dict]) -> bool:
 
     Returns:
         bool: Success status
-
-    Example:
-        trees = [
-            {
-                'id': 'tree_001',
-                'name': 'Snake Plant',
-                'planted_date': '2025-01-15',
-                'status': 'Healthy'
-            }
-        ]
-        save_planted_trees('user123', trees)
     """
-    file_path = _get_file_path(user_id, 'trees')
-    data = {
-        'trees': trees,
-        'last_updated': datetime.now().isoformat()
-    }
-    return _save_json(file_path, data)
+    try:
+        data = {
+            'trees': trees,
+            'last_updated': datetime.now().isoformat()
+        }
+        db.collection('planted_trees').document(user_id).set(data)
+        return True
+    except Exception as e:
+        st.error(f"Error saving planted trees: {e}")
+        return False
 
 
 def load_planted_trees(user_id: str) -> List[Dict]:
     """
-    Load list of planted trees
+    Load list of planted trees from Firebase
 
     Args:
         user_id: User identifier
@@ -158,12 +123,15 @@ def load_planted_trees(user_id: str) -> List[Dict]:
     Returns:
         list: List of tree dictionaries (empty list if none found)
     """
-    file_path = _get_file_path(user_id, 'trees')
-    data = _load_json(file_path)
-
-    if data and 'trees' in data:
-        return data['trees']
-    return []
+    try:
+        doc = db.collection('planted_trees').document(user_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get('trees', [])
+        return []
+    except Exception as e:
+        st.error(f"Error loading planted trees: {e}")
+        return []
 
 
 # =====================================
@@ -172,7 +140,7 @@ def load_planted_trees(user_id: str) -> List[Dict]:
 
 def save_watering_log(user_id: str, plant_id: str, timestamp: str = None) -> bool:
     """
-    Log a watering event for a plant
+    Log a watering event for a plant in Firebase
 
     Args:
         user_id: User identifier
@@ -181,49 +149,51 @@ def save_watering_log(user_id: str, plant_id: str, timestamp: str = None) -> boo
 
     Returns:
         bool: Success status
-
-    Example:
-        save_watering_log('user123', 'tree_001')
     """
-    if timestamp is None:
-        timestamp = datetime.now().isoformat()
+    try:
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
 
-    file_path = _get_file_path(user_id, 'watering_logs')
-    logs = _load_json(file_path) or {}
+        # Load existing logs
+        doc = db.collection('watering_logs').document(user_id).get()
+        logs = doc.to_dict() if doc.exists else {}
 
-    # Initialize plant's log if doesn't exist
-    if plant_id not in logs:
-        logs[plant_id] = []
+        # Initialize plant's log if doesn't exist
+        if plant_id not in logs:
+            logs[plant_id] = []
 
-    # Add new watering event
-    logs[plant_id].append({
-        'timestamp': timestamp,
-        'date': datetime.now().strftime('%Y-%m-%d')
-    })
+        # Add new watering event
+        logs[plant_id].append({
+            'timestamp': timestamp,
+            'date': datetime.now().strftime('%Y-%m-%d')
+        })
 
-    return _save_json(file_path, logs)
+        # Save back to Firebase
+        db.collection('watering_logs').document(user_id).set(logs)
+        return True
+    except Exception as e:
+        st.error(f"Error saving watering log: {e}")
+        return False
 
 
 def load_watering_logs(user_id: str) -> Dict[str, List[Dict]]:
     """
-    Load all watering logs for a user
+    Load all watering logs for a user from Firebase
 
     Args:
         user_id: User identifier
 
     Returns:
         dict: Dictionary mapping plant_id to list of watering events
-
-    Example:
-        {
-            'tree_001': [
-                {'timestamp': '2025-01-15T10:30:00', 'date': '2025-01-15'},
-                {'timestamp': '2025-01-17T10:30:00', 'date': '2025-01-17'}
-            ]
-        }
     """
-    file_path = _get_file_path(user_id, 'watering_logs')
-    return _load_json(file_path) or {}
+    try:
+        doc = db.collection('watering_logs').document(user_id).get()
+        if doc.exists:
+            return doc.to_dict()
+        return {}
+    except Exception as e:
+        st.error(f"Error loading watering logs: {e}")
+        return {}
 
 
 def get_plant_watering_count(user_id: str, plant_id: str) -> int:
@@ -247,7 +217,7 @@ def get_plant_watering_count(user_id: str, plant_id: str) -> int:
 
 def clear_user_data(user_id: str) -> bool:
     """
-    Delete all data for a user (useful for reset feature)
+    Delete all data for a user from Firebase
 
     Args:
         user_id: User identifier
@@ -256,14 +226,12 @@ def clear_user_data(user_id: str) -> bool:
         bool: Success status
     """
     try:
-        data_types = ['profile', 'trees', 'watering_logs']
-        for data_type in data_types:
-            file_path = _get_file_path(user_id, data_type)
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        db.collection('users').document(user_id).delete()
+        db.collection('planted_trees').document(user_id).delete()
+        db.collection('watering_logs').document(user_id).delete()
         return True
     except Exception as e:
-        print(f"Error clearing data for {user_id}: {e}")
+        st.error(f"Error clearing user data: {e}")
         return False
 
 
@@ -276,76 +244,159 @@ def get_all_users() -> List[str]:
     """
     try:
         users = set()
-        for filename in os.listdir(DATA_DIR):
-            if filename.endswith('.json'):
-                # Extract user_id from filename (format: user_id_datatype.json)
-                user_id = filename.split('_')[0]
-                users.add(user_id)
+
+        # Get users from 'users' collection
+        docs = db.collection('users').stream()
+        for doc in docs:
+            users.add(doc.id)
+
         return list(users)
     except Exception as e:
-        print(f"Error getting users: {e}")
+        st.error(f"Error getting users: {e}")
         return []
 
 
-# =====================================
-# EXAMPLE USAGE (FOR TESTING)
-# =====================================
+def get_all_data_for_admin() -> Dict:
+    """
+    Get ALL data from Firebase (for admin use only)
 
-if __name__ == "__main__":
-    # Test the functions
-    print("Testing db_handler...")
-
-    # Test user data
-    test_user = "test_user_123"
-    test_data = {
-        'name': 'Test User',
-        'location': 'Mumbai',
-        'email': 'test@example.com'
-    }
-
-    print("\n1. Saving user data...")
-    save_user_data(test_user, test_data)
-
-    print("2. Loading user data...")
-    loaded_data = load_user_data(test_user)
-    print(f"   Loaded: {loaded_data}")
-
-    # Test planted trees
-    print("\n3. Saving planted trees...")
-    test_trees = [
-        {
-            'id': 'tree_001',
-            'name': 'Snake Plant',
-            'planted_date': '2025-01-15',
-            'status': 'Healthy'
-        },
-        {
-            'id': 'tree_002',
-            'name': 'Tulsi',
-            'planted_date': '2025-01-16',
-            'status': 'Growing'
+    Returns:
+        dict: All users, trees, and logs
+    """
+    try:
+        all_data = {
+            'users': {},
+            'planted_trees': {},
+            'watering_logs': {},
+            'timestamp': datetime.now().isoformat()
         }
-    ]
-    save_planted_trees(test_user, test_trees)
 
-    print("4. Loading planted trees...")
-    loaded_trees = load_planted_trees(test_user)
-    print(f"   Loaded {len(loaded_trees)} trees")
+        # Get all users
+        users = db.collection('users').stream()
+        for user in users:
+            all_data['users'][user.id] = user.to_dict()
 
-    # Test watering logs
-    print("\n5. Logging watering events...")
-    save_watering_log(test_user, 'tree_001')
-    save_watering_log(test_user, 'tree_001')
-    save_watering_log(test_user, 'tree_002')
+        # Get all planted trees
+        trees = db.collection('planted_trees').stream()
+        for tree in trees:
+            all_data['planted_trees'][tree.id] = tree.to_dict()
 
-    print("6. Loading watering logs...")
-    logs = load_watering_logs(test_user)
-    print(f"   Tree 001 watered {len(logs.get('tree_001', []))} times")
-    print(f"   Tree 002 watered {len(logs.get('tree_002', []))} times")
+        # Get all watering logs
+        logs = db.collection('watering_logs').stream()
+        for log in logs:
+            all_data['watering_logs'][log.id] = log.to_dict()
 
-    print("\n7. Getting all users...")
-    all_users = get_all_users()
-    print(f"   Found users: {all_users}")
+        return all_data
+    except Exception as e:
+        st.error(f"Error fetching admin data: {e}")
+        return {}
 
-    print("\n✅ All tests completed!")
-    print(f"   Data stored in: {os.path.abspath(DATA_DIR)}")
+
+# =====================================
+# STATS FUNCTIONS (NEW - FOR ANALYTICS)
+# =====================================
+
+def get_platform_stats() -> Dict:
+    """
+    Get platform-wide statistics
+
+    Returns:
+        dict: Total users, trees, waterings, etc.
+    """
+    try:
+        stats = {
+            'total_users': 0,
+            'total_trees': 0,
+            'total_waterings': 0,
+            'active_users_7d': 0,
+            'timestamp': datetime.now().isoformat()
+        }
+
+        # Count users
+        users = db.collection('users').stream()
+        user_count = 0
+        for user in users:
+            user_count += 1
+        stats['total_users'] = user_count
+
+        # Count trees
+        trees_docs = db.collection('planted_trees').stream()
+        total_trees = 0
+        for doc in trees_docs:
+            data = doc.to_dict()
+            total_trees += len(data.get('trees', []))
+        stats['total_trees'] = total_trees
+
+        # Count waterings
+        logs = db.collection('watering_logs').stream()
+        total_waterings = 0
+        for log in logs:
+            log_data = log.to_dict()
+            for plant_id, events in log_data.items():
+                if isinstance(events, list):
+                    total_waterings += len(events)
+        stats['total_waterings'] = total_waterings
+
+        return stats
+    except Exception as e:
+        st.error(f"Error fetching stats: {e}")
+        return {}
+
+
+# =====================================
+# MIGRATION HELPER (JSON → FIREBASE)
+# =====================================
+
+def migrate_from_json(json_data: Dict) -> bool:
+    """
+    Migrate data from old JSON format to Firebase
+
+    Args:
+        json_data: Dictionary containing user_id, planted_trees, watering_logs
+
+    Returns:
+        bool: Success status
+    """
+    try:
+        user_id = json_data.get('user_id')
+        if not user_id:
+            st.error("No user_id found in JSON data")
+            return False
+
+        # Migrate planted trees
+        if 'planted_trees' in json_data:
+            save_planted_trees(user_id, json_data['planted_trees'])
+
+        # Migrate watering logs
+        if 'watering_logs' in json_data:
+            logs = json_data['watering_logs']
+            doc_ref = db.collection('watering_logs').document(user_id)
+            doc_ref.set(logs)
+
+        return True
+    except Exception as e:
+        st.error(f"Migration error: {e}")
+        return False
+
+
+# =====================================
+# TEST CONNECTION
+# =====================================
+
+def test_firebase_connection() -> bool:
+    """
+    Test if Firebase connection is working
+
+    Returns:
+        bool: True if connection works
+    """
+    try:
+        # Try to read from a test collection
+        test_ref = db.collection('_test').document('connection')
+        test_ref.set({'test': True, 'timestamp': datetime.now().isoformat()})
+        doc = test_ref.get()
+        test_ref.delete()
+        return doc.exists
+    except Exception as e:
+        st.error(f"Firebase connection test failed: {e}")
+        return False

@@ -93,7 +93,55 @@ except Exception:
     def check_and_award_badges():
         pass
 
+# Test Firebase connection on startup
+if st.button("🧪 Test Firebase Connection (Debug)", key="test_firebase"):
+    if db_handler.test_firebase_connection():
+        st.success("✅ Firebase connected!")
+    else:
+        st.error("❌ Firebase connection failed")
 
+def load_user_data_if_logged_in():
+    """
+    Called on every app run to restore user data from Firebase if already logged in
+    """
+    if st.session_state.get('logged_in', False) and st.session_state.get('user_id'):
+        # User is logged in - check if we need to reload from DB
+        if 'planted_trees' not in st.session_state or st.session_state.planted_trees is None:
+            try:
+                loaded_trees = db_handler.load_planted_trees(st.session_state.user_id)
+                if loaded_trees:
+                    st.session_state.planted_trees = loaded_trees
+                    st.session_state.user_state = "GUARDIAN" if len(loaded_trees) > 0 else "EXPLORER"
+            except:
+                st.session_state.planted_trees = []
+                st.session_state.user_state = "EXPLORER"
+def add_plant_to_garden_safe(plant_data):
+    """Universal function to add plant with proper initialization"""
+    plant = standardize_plant_data(plant_data)
+
+    # Add to session state
+    st.session_state.planted_trees.append(plant)
+
+    # Initialize watering logs for this plant
+    if plant['id'] not in st.session_state.watering_logs:
+        st.session_state.watering_logs[plant['id']] = []
+
+    # ✅ FORCE GUARDIAN MODE IMMEDIATELY
+    st.session_state.user_state = "GUARDIAN"
+
+    # Save to database (now Firebase!)
+    try:
+        success = db_handler.save_planted_trees(st.session_state.user_id, st.session_state.planted_trees)
+        if success:
+            # Show success feedback
+            st.toast(f"✅ {plant['name']} saved!", icon="🌱")
+        else:
+            st.warning(f"⚠️ {plant['name']} added locally but DB save failed")
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return False
+
+    return True
 def standardize_plant_data(plant):
     """
     Ensure all plants have consistent field names.
@@ -371,7 +419,14 @@ st.set_page_config(page_title="AirCare - Tree & Air Quality Planner", page_icon=
 
 def init_user_session():
     """Initialize user session with persistence and Phone Number login"""
-
+    # Auto-save to Firebase on any planted_trees change
+    if 'user_id' in st.session_state and st.session_state.user_id:
+        if 'planted_trees' in st.session_state and len(st.session_state.planted_trees) > 0:
+            # Silent background save (don't spam the user)
+            try:
+                db_handler.save_planted_trees(st.session_state.user_id, st.session_state.planted_trees)
+            except:
+                pass  # Fail silently, don't crash the app
     # 1. If user is already logged in, ensure data is loaded and return True
     if st.session_state.get('logged_in', False) and st.session_state.get('user_id'):
         # specific check: if logged in but data is missing (e.g. after browser refresh)
@@ -411,6 +466,26 @@ def init_user_session():
                 st.session_state.user_profile['phone'] = st.session_state.pending_phone
                 st.session_state.user_id = user_id
                 st.session_state.logged_in = True
+                # 🔥 LOAD USER'S GARDEN FROM FIREBASE
+                try:
+                    loaded_trees = db_handler.load_planted_trees(st.session_state.user_id)
+
+                    if loaded_trees and len(loaded_trees) > 0:
+                        # User has plants saved in DB
+                        st.session_state.planted_trees = loaded_trees
+                        st.session_state.user_state = "GUARDIAN"
+                        st.toast(f"✅ Welcome back! Loaded {len(loaded_trees)} plants", icon="🌿")
+                    else:
+                        # New user or no plants yet
+                        st.session_state.planted_trees = []
+                        st.session_state.user_state = "EXPLORER"
+                        st.toast("🌱 Welcome! Let's plant your first tree", icon="👋")
+
+                except Exception as e:
+                    # Database error - fail gracefully
+                    st.warning(f"Couldn't load your garden: {e}")
+                    st.session_state.planted_trees = []
+                    st.session_state.user_state = "EXPLORER"
                 st.session_state.show_profile_form = False  # Reset flag
 
                 # Save to Database
@@ -919,37 +994,24 @@ if st.session_state.get('show_plant_selector', False):
                         st.markdown(f"**{rec['name']}**")
                         st.caption(rec['reason'])
 
-                        if st.button(f"Add", key=f"modal_aqi_{idx}"):
-                            # ADD FULL PLANT DATA (Fix from earlier)
+                        # FIXED: Unique key + proper add function + rerun
+                        if st.button(f"Add", key=f"modal_aqi_add_{rec['name']}_{idx}"):
                             from tree_data import get_tree_data, get_balcony_plants_data
 
                             all_plants = get_tree_data() + get_balcony_plants_data()
                             full_plant = next((p for p in all_plants if p['name'] == rec['name']), None)
 
                             if full_plant:
-                                new_plant = full_plant.copy()
-                                new_plant['id'] = str(uuid.uuid4())
-                                new_plant['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-                                new_plant['status'] = "Newly Planted"
-                                new_plant['health'] = "Good"
-
-                                st.session_state.planted_trees.append(new_plant)
-                                st.session_state.user_profile['trees_planted'] = len(st.session_state.planted_trees)
-
-                                if st.session_state.get('user_id'):
-                                    try:
-                                        db_handler.save_planted_trees(st.session_state.user_id,
-                                                                      st.session_state.planted_trees)
-                                    except:
-                                        pass
-
-                                add_xp(50, f"Planted {rec['name']}!")
-                                check_and_award_badges()
-
-                                st.session_state.show_plant_selector = False
-                                st.success(f"✅ {rec['name']} added!")
-                                time.sleep(1)
-                                st.rerun()
+                                # Use the safe add function (handles all state + DB)
+                                if add_plant_to_garden_safe(full_plant):
+                                    add_xp(50, f"Planted {rec['name']}!")
+                                    check_and_award_badges()
+                                    st.session_state.show_plant_selector = False
+                                    st.success(f"✅ {rec['name']} added to My Garden!")
+                                    time.sleep(0.5)  # Brief pause so user sees the message
+                                    st.rerun()  # CRITICAL: Refresh to show Guardian mode
+                            else:
+                                st.error(f"❌ Plant data not found for {rec['name']}")
         else:
             st.warning("Set location first to see AQI-based recommendations")
 
@@ -1031,7 +1093,9 @@ def init_session_state():
             st.session_state.current_page = "🌿 My Garden"
 
 
-init_session_state()  # ✅ Call only ONCE
+init_session_state()
+load_user_data_if_logged_in()  # <-- ADD THIS LINE
+# ✅ Call only ONCE
 
 # ===========================
 # INITIALIZE USER PROFILE FIRST (Always needed)
@@ -1138,7 +1202,26 @@ with st.sidebar:
                 navigate_to("Community")
             if st.button("🛒 Marketplace", width='stretch'):
                 navigate_to("Marketplace")
+        # Admin panel (in sidebar)
+        if "admin" in st.session_state.get('user_id', '').lower():
+            st.markdown("---")
+            st.subheader("👑 Admin Panel")
 
+            if st.button("📊 View Platform Stats"):
+                stats = db_handler.get_platform_stats()
+                st.metric("Total Users", stats['total_users'])
+                st.metric("Total Plants", stats['total_trees'])
+                st.metric("Total Waterings", stats['total_waterings'])
+
+            if st.button("📥 Download All Data"):
+                all_data = db_handler.get_all_data_for_admin()
+                json_str = json.dumps(all_data, indent=2)
+                st.download_button(
+                    label="💾 Download Database",
+                    data=json_str,
+                    file_name=f"aircare_full_backup_{datetime.datetime.now().strftime('%Y%m%d')}.json",
+                    mime="application/json"
+                )
 display_profile_sidebar()
 display_tree_svg()
 
@@ -1527,56 +1610,25 @@ elif st.session_state.current_page == "🌫️ Air Quality Hub":
                         st.markdown(f"**{rec['name']}**")
                         st.caption(rec['reason'])
                         if st.button(f"Add {rec['name']}", key=f"add_plant_aqi_{idx}"):
-                            # Actually add the plant to user's garden
-                            plant_to_add = standardize_plant_data(rec.copy())
-                            plant_to_add['id'] = str(uuid.uuid4())
-                            plant_to_add['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-                            plant_to_add['status'] = "Newly Planted"
-                            plant_to_add['health'] = "Good"
+                            # ✅ FETCH FULL PLANT DATA FROM DATABASE
+                            from tree_data import get_tree_data, get_balcony_plants_data
 
-                            if st.button(f"Add {rec['name']}", key=f"add_smart_rec_{idx}"):
-                                #                                      ^^^^^^^^ NEW PREFIX
-                                # ✅ FETCH FULL PLANT DATA FROM DATABASE
-                                from tree_data import get_tree_data, get_balcony_plants_data
+                            # Combine all available plants
+                            all_plants = get_tree_data() + get_balcony_plants_data()
 
-                                # Combine all available plants
-                                all_plants = get_tree_data() + get_balcony_plants_data()
+                            # Find the full plant object by name
+                            full_plant = next((p for p in all_plants if p['name'] == rec['name']), None)
 
-                                # Find the full plant object by name
-                                full_plant = next((p for p in all_plants if p['name'] == rec['name']), None)
-
-                                if full_plant:
-                                    # Create complete plant record
-                                    new_plant = full_plant.copy()
-                                    new_plant['id'] = str(uuid.uuid4())
-                                    new_plant['planted_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-                                    new_plant['status'] = "Newly Planted"
-                                    new_plant['health'] = "Good"
-
-                                    # Add to session
-                                    st.session_state.planted_trees.append(new_plant)
-                                    st.session_state.user_profile['trees_planted'] = len(st.session_state.planted_trees)
-
-                                    # Save to database
-                                    if st.session_state.get('user_id'):
-                                        try:
-                                            db_handler.save_planted_trees(
-                                                st.session_state.user_id,
-                                                st.session_state.planted_trees
-                                            )
-                                        except:
-                                            pass
-
-                                    # Award XP
+                            if full_plant:
+                                # Use the safe add function (handles all state + DB)
+                                if add_plant_to_garden_safe(full_plant):
                                     add_xp(50, f"Planted {rec['name']}!")
                                     check_and_award_badges()
-
-                                    st.success(f"✅ {rec['name']} added with complete care details!")
-                                    time.sleep(1)
-                                    st.rerun()
-                                else:
-                                    st.error(
-                                        f"⚠️ Could not find care data for {rec['name']}. Try adding from Planting Guide.")
+                                    st.success(f"✅ {rec['name']} added to My Garden!")
+                                    time.sleep(0.5)  # Brief pause so user sees the message
+                                    st.rerun()  # CRITICAL: Refresh to show Guardian mode
+                            else:
+                                st.error(f"❌ Plant data not found for {rec['name']}")
                 # Health recommendations
                 st.markdown("---")
                 st.subheader("⚕️ Health Recommendations")
@@ -2032,6 +2084,7 @@ elif st.session_state.current_page == "🛒 Marketplace":
 
         products = get_marketplace_products()
     except ImportError:
+        get_marketplace_products = None
         st.error("⚠️ marketplace_data.py not found. Please create the file.")
         products = []
 
