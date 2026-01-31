@@ -99,7 +99,25 @@ if st.button("🧪 Test Firebase Connection (Debug)", key="test_firebase"):
         st.success("✅ Firebase connected!")
     else:
         st.error("❌ Firebase connection failed")
+# Add to st.set_page_config():
+st.set_page_config(
+    initial_sidebar_state="collapsed"  # ← Add this line!
+)
 
+# Add first-time user hint:
+if 'first_visit' not in st.session_state:
+    st.session_state.first_visit = True
+
+if st.session_state.first_visit:
+    st.markdown("""
+    <div style='background: #667eea; color: white; padding: 15px; border-radius: 10px;'>
+        👈 Tap the <strong>>></strong> button to open menu!
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Got it! ✓"):
+        st.session_state.first_visit = False
+        st.rerun()
 def load_user_data_if_logged_in():
     """
     Called on every app run to restore user data from Firebase if already logged in
@@ -118,7 +136,12 @@ def load_user_data_if_logged_in():
 def add_plant_to_garden_safe(plant_data):
     """Universal function to add plant with proper initialization"""
     plant = standardize_plant_data(plant_data)
+    existing = next((p for p in st.session_state.planted_trees
+                     if p['name'] == plant['name']), None)
 
+    if existing:
+        st.warning(f"⚠️ {plant['name']} already in garden!")
+        return False
     # Add to session state
     st.session_state.planted_trees.append(plant)
 

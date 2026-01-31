@@ -1,19 +1,20 @@
 """
 Guardian Super Dashboard - The Ultimate Plant Care Hub
-Merges: My Garden + Impact Tracker + Plant Doctor into ONE seamless experience
-
-This is where Guardian mode users (those who've planted trees) spend 80% of their time.
+✅ UPDATED WITH FIX #3: Plant removal functionality
 """
 
 import streamlit as st
 import datetime
 import plotly.graph_objects as go
 from impact_calculator import calculate_impact
-import numpy as np  # ✅ ADD
-from PIL import Image  # ✅ ADD
-import io  # ✅ ADD
+import numpy as np
+from PIL import Image
+import io
+import db_handler
+
+
 # ===========================
-# PLANT DOCTOR FUNCTIONS (Copied from app.py to avoid circular imports)
+# PLANT DOCTOR FUNCTIONS
 # ===========================
 
 def analyze_plant_image(img_bytes):
@@ -104,9 +105,7 @@ def diagnose_plant_health(analysis):
 
     return issues, recommendations
 
-# ===========================
-# (Rest of guardian_dashboard.py continues below)
-# ===========================
+
 def calculate_days_since_planted(planted_date_str):
     """Calculate days since a plant was planted"""
     try:
@@ -115,7 +114,7 @@ def calculate_days_since_planted(planted_date_str):
         delta = today - planted
         return delta.days
     except Exception as e:
-        return 0  # Keep behavior but at least log the exception type
+        return 0
 
 
 def get_health_emoji(health_status):
@@ -152,7 +151,6 @@ def suggest_next_action(plant):
     if not logs:
         return "💧 Water your plant for the first time!"
 
-    # Get last watering
     # Get last watering
     last_watered = logs[-1]
 
@@ -197,11 +195,13 @@ def suggest_next_action(plant):
 def show_guardian_super_dashboard():
     """
     THE ULTIMATE DASHBOARD
+    ✅ NOW WITH PLANT REMOVAL FEATURE
 
     Everything a plant guardian needs in one scrollable page:
     - Live impact metrics (top)
     - Plant cards with integrated actions
     - Inline Plant Doctor
+    - ✅ NEW: Remove plant button
     - Detailed impact projections (bottom)
     """
 
@@ -212,7 +212,7 @@ def show_guardian_super_dashboard():
     # SECTION 1: LIVE IMPACT METRICS (Always Visible)
     # ============================================
 
-    st.markdown("### 🌍 Live Environmental Impact")
+    st.markdown("### 📊 Real-Time Environmental Impact")
 
     impact = calculate_impact(st.session_state.planted_trees)
 
@@ -220,191 +220,221 @@ def show_guardian_super_dashboard():
 
     with col1:
         st.metric(
-            label="🌳 Active Plants",
+            label="🌳 Plants",
             value=len(st.session_state.planted_trees),
-            delta="Growing strong"
+            delta=f"{len([p for p in st.session_state.planted_trees if p.get('status') != 'Newly Planted'])} growing"
         )
 
     with col2:
         st.metric(
-            label="💨 CO₂ Offset",
-            value=f"{impact['carbon_sequestered']:.1f} kg",
-            delta="+0.2 kg daily",
-            delta_color="normal"
+            label="🌍 CO₂ Offset (kg/year)",
+            value=f"{impact['carbon_sequestered']:.1f}",
+            delta="Equivalent to planting trees!"
         )
 
     with col3:
         st.metric(
-            label="💚 O₂ Produced",
-            value=f"{impact['oxygen_produced']:.1f} kg/yr",
-            delta="Annual estimate"
+            label="💨 O₂ Produced (kg/year)",
+            value=f"{impact['oxygen_produced']:.1f}",
+            delta="Breathing easier"
         )
 
     with col4:
         st.metric(
-            label="🧹 Pollutants",
-            value=f"{impact['pollutants_removed']:.0f} g/yr",
-            delta="Removed annually"
+            label="🫁 Pollutants Removed (kg/year)",
+            value=f"{impact['pollutants_removed']:.1f}",
+            delta="Cleaner air"
         )
-
-    # Fun progress message
-    total_days_caring = sum([
-        calculate_days_since_planted(p.get('planted_date', ''))
-        for p in st.session_state.planted_trees
-    ])
-
-    st.info(f"💪 **{total_days_caring} total days** of plant care! You're making Earth greener every day.")
 
     st.markdown("---")
 
     # ============================================
-    # SECTION 2: PLANT CARDS (Main Content)
+    # SECTION 2: MY PLANTS (Cards with Actions)
     # ============================================
 
-    st.markdown("### 🪴 Your Plants")
+    st.markdown("### 🌱 My Plants")
 
     if not st.session_state.planted_trees:
-        st.warning("No plants yet! How did you get here? 🤔")
-        return
+        st.info("No plants yet! Add your first plant below.")
+    else:
+        # Display each plant as a card
+        for idx, plant in enumerate(st.session_state.planted_trees):
+            plant_id = plant.get('id', f'plant_{idx}')
+            name = plant.get('name', 'Unknown Plant')
+            status = plant.get('status', 'Newly Planted')
+            health = plant.get('health', 'Good')
+            planted_date = plant.get('planted_date', datetime.datetime.now().strftime("%Y-%m-%d"))
 
-    for idx, plant in enumerate(st.session_state.planted_trees):
-        plant_id = plant.get('id', str(idx))
-        plant_name = plant.get('name', 'Unknown Plant')
-        planted_date = plant.get('planted_date', '')
-        status = plant.get('status', 'Newly Planted')
-        health = plant.get('health', 'Good')
+            days_old = calculate_days_since_planted(planted_date)
+            progress = get_status_progress(status)
+            next_action = suggest_next_action(plant)
+            health_emoji = get_health_emoji(health)
 
-        days_ago = calculate_days_since_planted(planted_date)
-        health_emoji = get_health_emoji(health)
-        progress = get_status_progress(status)
-        next_action = suggest_next_action(plant)
+            # Plant card container
+            with st.container():
+                st.markdown(f"#### {name}")
 
-        # PLANT CARD
-        with st.container():
-            # Header row: Name + Quick Stats
-            col_header1, col_header2 = st.columns([3, 1])
+                # Top row: Age + Health
+                col_age, col_health = st.columns(2)
 
-            with col_header1:
-                st.markdown(f"## 🌱 {plant_name}")
-                st.caption(f"*Planted {days_ago} days ago • {planted_date}*")
+                with col_age:
+                    st.metric("🗓 Plant Age", f"{days_old} days")
 
-            with col_header2:
-                st.markdown(f"### {health_emoji}")
-                st.caption(health)
+                with col_health:
+                    st.markdown(f"**Health:** {health_emoji}")
+                    st.caption(health)
 
-            # Info row: Status + Progress
-            col_info1, col_info2 = st.columns(2)
+                # Info row: Status + Progress
+                col_info1, col_info2 = st.columns(2)
 
-            with col_info1:
-                st.markdown(f"**Growth Stage:** {status}")
-                st.progress(progress)
-                st.caption(f"🌱 {int(progress * 100)}% to maturity")
+                with col_info1:
+                    st.markdown(f"**Growth Stage:** {status}")
+                    st.progress(progress)
+                    st.caption(f"🌱 {int(progress * 100)}% to maturity")
 
-            with col_info2:
-                st.markdown(f"**Next Task:**")
-                st.info(next_action)
+                with col_info2:
+                    st.markdown(f"**Next Task:**")
+                    st.info(next_action)
 
-            # Action row: Buttons + Plant Doctor
-            col_actions, col_doctor = st.columns([1, 2])
+                # Action row: Buttons + Plant Doctor
+                col_actions, col_doctor = st.columns([1, 2])
 
-            with col_actions:
-                st.markdown("**Quick Actions:**")
+                with col_actions:
+                    st.markdown("**Quick Actions:**")
 
-                # Watering button
-                if st.button("💧 Log Water", key=f"water_{plant_id}"):
-                    # Initialize log if doesn't exist
-                    if plant_id not in st.session_state.watering_logs:
-                        st.session_state.watering_logs[plant_id] = []
+                    # Watering button
+                    if st.button("💧 Log Water", key=f"water_{plant_id}"):
+                        # Initialize log if doesn't exist
+                        if plant_id not in st.session_state.watering_logs:
+                            st.session_state.watering_logs[plant_id] = []
 
-                    st.session_state.watering_logs[plant_id].append(datetime.datetime.now().isoformat())
-                    st.success("✅ Watered!")
-
-                    # Save to database
-                    if st.session_state.get('user_id'):
-                        try:
-                            db_handler.save_watering_log(st.session_state.user_id, plant_id)
-                        except:
-                            pass
-
-                    st.success("✅ Watered! +10 XP")
-                    st.rerun()
-
-                # Watering stats
-                water_count = len(st.session_state.watering_logs.get(plant_id, []))
-                st.caption(f"✅ Watered {water_count} times total")
-
-                # Update status/health
-                with st.expander("✏️ Update Status"):
-                    new_status = st.selectbox(
-                        "Growth Stage:",
-                        ["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"],
-                        index=["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"].index(status),
-                        key=f"status_update_{plant_id}"
-                    )
-
-                    new_health = st.selectbox(
-                        "Health:",
-                        ["Excellent", "Good", "Fair", "Needs Attention", "Poor"],
-                        index=["Excellent", "Good", "Fair", "Needs Attention", "Poor"].index(health),
-                        key=f"health_update_{plant_id}"
-                    )
-
-                    if st.button("💾 Save Changes", key=f"save_{plant_id}"):
-                        plant['status'] = new_status
-                        plant['health'] = new_health
+                        st.session_state.watering_logs[plant_id].append(datetime.datetime.now().isoformat())
 
                         # Save to database
                         if st.session_state.get('user_id'):
                             try:
-                                import db_handler
-                                db_handler.save_planted_trees(st.session_state.user_id, st.session_state.planted_trees)
+                                db_handler.save_watering_log(st.session_state.user_id, plant_id)
                             except:
                                 pass
 
-                        st.success("Updated! +20 XP")
+                        st.success("✅ Watered! +10 XP")
                         st.rerun()
 
-            with col_doctor:
-                st.markdown("**🩺 AI Plant Doctor:**")
+                    # Watering stats
+                    water_count = len(st.session_state.watering_logs.get(plant_id, []))
+                    st.caption(f"✅ Watered {water_count} times total")
 
-                photo = st.file_uploader(
-                    "Upload photo for health check",
-                    type=['jpg', 'png', 'jpeg'],
-                    key=f"scan_{plant_id}",
-                    help="Take a clear photo of your plant's leaves"
-                )
+                    # ✅ FIX #3: REMOVE PLANT BUTTON
+                    with st.expander("⚙️ More Options"):
+                        st.markdown("**Update Status:**")
 
-                if photo:
-                    with st.spinner("🔬 Analyzing plant health..."):
-                        img_bytes = photo.getvalue()
-                        st.image(img_bytes, width=200, caption="Analyzing this photo")
+                        new_status = st.selectbox(
+                            "Growth Stage:",
+                            ["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"],
+                            index=["Newly Planted", "Seedling", "Sapling", "Young Tree", "Mature Tree"].index(status),
+                            key=f"status_update_{plant_id}"
+                        )
 
-                        # Use local functions (no import needed)
-                        analysis = analyze_plant_image(img_bytes)
-                        issues, recommendations = diagnose_plant_health(analysis)
+                        new_health = st.selectbox(
+                            "Health:",
+                            ["Excellent", "Good", "Fair", "Needs Attention", "Poor"],
+                            index=["Excellent", "Good", "Fair", "Needs Attention", "Poor"].index(health),
+                            key=f"health_update_{plant_id}"
+                        )
 
-                    st.success("✅ Analysis Complete!")
+                        col_save, col_remove = st.columns(2)
 
+                        with col_save:
+                            if st.button("💾 Save", key=f"save_{plant_id}", use_container_width=True):
+                                plant['status'] = new_status
+                                plant['health'] = new_health
 
-                    with st.spinner("🔬 Analyzing plant health..."):
-                        img_bytes = photo.getvalue()
-                        st.image(img_bytes, width=200, caption="Analyzing this photo")
+                                # Save to database
+                                if st.session_state.get('user_id'):
+                                    try:
+                                        db_handler.save_planted_trees(st.session_state.user_id,
+                                                                      st.session_state.planted_trees)
+                                    except:
+                                        pass
 
-                        analysis = analyze_plant_image(img_bytes)
-                        issues, recommendations = diagnose_plant_health(analysis)
+                                st.success("Updated! +20 XP")
+                                st.rerun()
 
-                    st.success("✅ Analysis Complete!")
+                        with col_remove:
+                            # ✅ NEW: REMOVE BUTTON
+                            if st.button("🗑️ Remove", key=f"remove_{plant_id}", type="secondary",
+                                         use_container_width=True):
+                                st.session_state[f'confirm_remove_{plant_id}'] = True
+                                st.rerun()
 
-                    with st.expander("📋 Full Health Report", expanded=True):
-                        st.markdown("**🔍 Issues Detected:**")
-                        for issue in issues:
-                            st.markdown(f"- {issue}")
+                        # ✅ CONFIRMATION DIALOG
+                        if st.session_state.get(f'confirm_remove_{plant_id}', False):
+                            st.warning(f"⚠️ Are you sure you want to remove **{name}** from your garden?")
 
-                        st.markdown("**💡 Recommendations:**")
-                        for rec in recommendations[:5]:  # Limit to top 5
-                            st.markdown(f"- {rec}")
+                            col_yes, col_no = st.columns(2)
 
-            st.markdown("---")
+                            with col_yes:
+                                if st.button("Yes, remove it", key=f"confirm_yes_{plant_id}", type="primary"):
+                                    # Remove from session state
+                                    st.session_state.planted_trees = [
+                                        p for p in st.session_state.planted_trees if p['id'] != plant_id
+                                    ]
+
+                                    # Remove watering logs
+                                    if plant_id in st.session_state.watering_logs:
+                                        del st.session_state.watering_logs[plant_id]
+
+                                    # Update user state if no plants left
+                                    if len(st.session_state.planted_trees) == 0:
+                                        st.session_state.user_state = "EXPLORER"
+
+                                    # Save to database
+                                    try:
+                                        db_handler.save_planted_trees(st.session_state.user_id,
+                                                                      st.session_state.planted_trees)
+                                    except:
+                                        pass
+
+                                    st.success(f"🗑️ {name} removed from garden")
+                                    del st.session_state[f'confirm_remove_{plant_id}']
+                                    st.rerun()
+
+                            with col_no:
+                                if st.button("No, keep it", key=f"confirm_no_{plant_id}"):
+                                    del st.session_state[f'confirm_remove_{plant_id}']
+                                    st.rerun()
+
+                with col_doctor:
+                    st.markdown("**🩺 AI Plant Doctor:**")
+
+                    photo = st.file_uploader(
+                        "Upload photo for health check",
+                        type=['jpg', 'png', 'jpeg'],
+                        key=f"scan_{plant_id}",
+                        help="Take a clear photo of your plant's leaves"
+                    )
+
+                    if photo:
+                        with st.spinner("🔬 Analyzing plant health..."):
+                            img_bytes = photo.getvalue()
+                            st.image(img_bytes, width=200, caption="Analyzing this photo")
+
+                            # Use local functions
+                            analysis = analyze_plant_image(img_bytes)
+                            issues, recommendations = diagnose_plant_health(analysis)
+
+                        st.success("✅ Analysis Complete!")
+
+                        with st.expander("📋 Full Health Report", expanded=True):
+                            st.markdown("**🔍 Issues Detected:**")
+                            for issue in issues:
+                                st.markdown(f"- {issue}")
+
+                            st.markdown("**💡 Recommendations:**")
+                            for rec in recommendations[:5]:  # Limit to top 5
+                                st.markdown(f"- {rec}")
+
+                st.markdown("---")
 
     # ============================================
     # SECTION 3: ADD ANOTHER PLANT
@@ -414,8 +444,8 @@ def show_guardian_super_dashboard():
 
     with col_button:
         if st.button("➕ Add Another Plant", type="primary"):
-            # Show plant selector modal
-            st.session_state.show_plant_selector = True
+            # Navigate back to Home to select plant
+            st.session_state.page = "Home"
             st.rerun()
 
     st.markdown("---")
@@ -460,7 +490,7 @@ def show_guardian_super_dashboard():
         height=400
     )
 
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
     # ============================================
     # SECTION 5: FUN FACTS & COMPARISONS
